@@ -54,6 +54,7 @@ func main() {
 	hotelService := service.NewHotelService(db, hotelRepo, userRepo)
 	roomService := service.NewRoomService(roomRepo, amenityRepo)
 	amenityService := service.NewAmenityService(amenityRepo)
+	userService := service.NewUserService(userRepo)
 
 	// Initialize handlers
 	handlers := &router.Handlers{
@@ -61,6 +62,7 @@ func main() {
 		Hotel:   handler.NewHotelHandler(hotelService),
 		Room:    handler.NewRoomHandler(roomService),
 		Amenity: handler.NewAmenityHandler(amenityService),
+		User:    handler.NewUserHandler(userService),
 	}
 
 	// Setup router

@@ -46,6 +46,20 @@ func (r *UserRepository) FindByHotelID(hotelID string, page, perPage int) ([]mod
 	return users, total, err
 }
 
+func (r *UserRepository) FindAll(page, perPage int, role string) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	query := r.db.Model(&models.User{})
+	if role != "" {
+		query = query.Where("role = ?", role)
+	}
+	query.Count(&total)
+
+	err := query.Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
+	return users, total, err
+}
+
 func (r *UserRepository) Update(user *models.User) error {
 	return r.db.Save(user).Error
 }

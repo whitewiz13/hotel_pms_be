@@ -87,6 +87,15 @@ Error 401 if invalid or room not occupied.
 | PUT | `/api/hotels/:hotel_id` | Super Admin | Update hotel |
 | DELETE | `/api/hotels/:hotel_id` | Super Admin | Delete hotel |
 
+### Users (Global)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/users` | Super Admin | List all users (paginated, `?role=`) |
+
+**GET /api/users?role=hotel_admin** — List users, optionally filtered by role.
+Accepts `?page=1&per_page=20&role=hotel_admin`. Returns paginated user list.
+
 **POST /api/hotels** — Creates a hotel and its admin account in one transaction.
 ```json
 {
@@ -128,6 +137,10 @@ Fields: `name, address, city, state, country, zip_code, phone, email, descriptio
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/api/hotels/:hotel_id/staff` | Hotel Admin+ | Create staff member |
+| GET | `/api/hotels/:hotel_id/staff` | Hotel Admin+ | List hotel staff (paginated) |
+
+**GET /api/hotels/:hotel_id/staff** — List all staff members of the hotel (paginated).
+Accepts `?page=1&per_page=20`. Returns paginated user list.
 
 **POST /api/hotels/:hotel_id/staff**
 ```json

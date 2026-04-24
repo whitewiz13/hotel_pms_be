@@ -15,6 +15,7 @@ type Handlers struct {
 	Hotel   *handler.HotelHandler
 	Room    *handler.RoomHandler
 	Amenity *handler.AmenityHandler
+	User    *handler.UserHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -52,7 +53,9 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				hotels.GET("", middleware.RequireSuperAdmin(), handlers.Hotel.GetAll)
 			}
 
-			// Hotel-scoped routes (requires hotel access)
+			protected.GET("/users", middleware.RequireSuperAdmin(), handlers.User.GetAll)
+
+			// Hotel-scoped routes
 			hotel := protected.Group("/hotels/:hotel_id")
 			hotel.Use(middleware.HotelAccessMiddleware())
 			{
@@ -62,6 +65,7 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 
 				// Staff management
 				hotel.POST("/staff", middleware.RequireHotelAdminOrAbove(), handlers.Auth.CreateStaff)
+				hotel.GET("/staff", middleware.RequireHotelAdminOrAbove(), handlers.User.GetByHotelID)
 
 				// Rooms
 				hotel.POST("/rooms", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.Create)
