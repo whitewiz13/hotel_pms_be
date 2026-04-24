@@ -103,4 +103,3 @@ func RunMigrations(db *gorm.DB) error {
 	}
 	return nil
 }
-}
