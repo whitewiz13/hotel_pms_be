@@ -18,13 +18,15 @@ func NewRoomHandler(roomService *service.RoomService) *RoomHandler {
 }
 
 func (h *RoomHandler) Create(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
+
 	var req dto.CreateRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}
 
-	room, err := h.roomService.Create(req)
+	room, err := h.roomService.Create(hotelID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
@@ -34,9 +36,10 @@ func (h *RoomHandler) Create(c *gin.Context) {
 }
 
 func (h *RoomHandler) GetByID(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	room, err := h.roomService.GetByID(id)
+	room, err := h.roomService.GetByID(id, hotelID)
 	if err != nil {
 		utils.RespondNotFound(c, err.Error())
 		return
@@ -46,7 +49,7 @@ func (h *RoomHandler) GetByID(c *gin.Context) {
 }
 
 func (h *RoomHandler) GetByHotelID(c *gin.Context) {
-	hotelID := c.Param("hotelId")
+	hotelID := c.Param("hotel_id")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
 
@@ -67,6 +70,7 @@ func (h *RoomHandler) GetByHotelID(c *gin.Context) {
 }
 
 func (h *RoomHandler) Update(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
 	var req dto.UpdateRoomRequest
@@ -75,7 +79,7 @@ func (h *RoomHandler) Update(c *gin.Context) {
 		return
 	}
 
-	room, err := h.roomService.Update(id, req)
+	room, err := h.roomService.Update(id, hotelID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
@@ -85,9 +89,10 @@ func (h *RoomHandler) Update(c *gin.Context) {
 }
 
 func (h *RoomHandler) Delete(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	if err := h.roomService.Delete(id); err != nil {
+	if err := h.roomService.Delete(id, hotelID); err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}
@@ -96,9 +101,10 @@ func (h *RoomHandler) Delete(c *gin.Context) {
 }
 
 func (h *RoomHandler) GeneratePin(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	pin, err := h.roomService.SetAccessPin(id)
+	pin, err := h.roomService.SetAccessPin(id, hotelID)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
@@ -108,9 +114,10 @@ func (h *RoomHandler) GeneratePin(c *gin.Context) {
 }
 
 func (h *RoomHandler) ClearPin(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	if err := h.roomService.ClearAccessPin(id); err != nil {
+	if err := h.roomService.ClearAccessPin(id, hotelID); err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}

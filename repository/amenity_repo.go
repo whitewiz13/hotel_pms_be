@@ -26,27 +26,37 @@ func (r *AmenityRepository) FindByID(id string) (*models.Amenity, error) {
 	return &amenity, nil
 }
 
-func (r *AmenityRepository) FindAll(page, perPage int) ([]models.Amenity, int64, error) {
+func (r *AmenityRepository) FindByHotelID(hotelID string, page, perPage int) ([]models.Amenity, int64, error) {
 	var amenities []models.Amenity
 	var total int64
 
-	r.db.Model(&models.Amenity{}).Count(&total)
+	query := r.db.Where("hotel_id = ?", hotelID)
+	query.Model(&models.Amenity{}).Count(&total)
 
-	err := r.db.Offset((page - 1) * perPage).Limit(perPage).Find(&amenities).Error
+	err := query.Offset((page - 1) * perPage).Limit(perPage).Find(&amenities).Error
 	return amenities, total, err
 }
 
-func (r *AmenityRepository) FindByIDs(ids []string) ([]models.Amenity, error) {
+func (r *AmenityRepository) FindByIDAndHotel(id, hotelID string) (*models.Amenity, error) {
+	var amenity models.Amenity
+	err := r.db.Where("id = ? AND hotel_id = ?", id, hotelID).First(&amenity).Error
+	if err != nil {
+		return nil, err
+	}
+	return &amenity, nil
+}
+
+func (r *AmenityRepository) FindByIDsAndHotel(ids []string, hotelID string) ([]models.Amenity, error) {
 	var amenities []models.Amenity
-	err := r.db.Where("id IN ?", ids).Find(&amenities).Error
+	err := r.db.Where("id IN ? AND hotel_id = ?", ids, hotelID).Find(&amenities).Error
 	return amenities, err
 }
 
-func (r *AmenityRepository) FindByCategory(category string, page, perPage int) ([]models.Amenity, int64, error) {
+func (r *AmenityRepository) FindByCategoryAndHotel(category, hotelID string, page, perPage int) ([]models.Amenity, int64, error) {
 	var amenities []models.Amenity
 	var total int64
 
-	query := r.db.Where("category = ?", category)
+	query := r.db.Where("category = ? AND hotel_id = ?", category, hotelID)
 	query.Model(&models.Amenity{}).Count(&total)
 
 	err := query.Offset((page - 1) * perPage).Limit(perPage).Find(&amenities).Error

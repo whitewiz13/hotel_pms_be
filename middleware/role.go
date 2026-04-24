@@ -46,29 +46,65 @@ func RequireRole(roles ...models.UserRole) gin.HandlerFunc {
 }
 
 // ---------------------------------------------------------------------------
-// Convenience helpers – update these when you add/remove roles in models.ValidRoles
+// Hotel access middleware – verifies the user belongs to the hotel in the URL
+// ---------------------------------------------------------------------------
+
+func HotelAccessMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := GetClaims(c)
+		if claims == nil {
+			utils.RespondUnauthorized(c, "authentication required")
+			c.Abort()
+			return
+		}
+
+		// Super admin has access to all hotels
+		if claims.Role == models.RoleSuperAdmin {
+			c.Next()
+			return
+		}
+
+		// For other roles, hotel_id in URL must match their hotel_id
+		hotelID := c.Param("hotel_id")
+		if claims.HotelID != hotelID {
+			utils.RespondForbidden(c, "access denied to this hotel")
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Convenience helpers
 // ---------------------------------------------------------------------------
 
 func RequireSuperAdmin() gin.HandlerFunc {
 	return RequireRole(models.RoleSuperAdmin)
 }
 
-// Management = super_admin + manager
-func RequireManagement() gin.HandlerFunc {
-	return RequireRole(models.RoleSuperAdmin, models.RoleManager)
+// RequireHotelAdminOrAbove = super_admin + hotel_admin
+func RequireHotelAdminOrAbove() gin.HandlerFunc {
+	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin)
 }
 
-// FrontDeskOrAbove = super_admin + manager + front_desk
-func RequireFrontDeskOrAbove() gin.HandlerFunc {
-	return RequireRole(models.RoleSuperAdmin, models.RoleManager, models.RoleFrontDesk)
+// RequireHotelManagement = super_admin + hotel_admin + manager
+func RequireHotelManagement() gin.HandlerFunc {
+	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager)
 }
 
-// AnyStaff = every role in ValidRoles (all non-guest authenticated users)
+// RequireHotelFrontDeskOrAbove = super_admin + hotel_admin + manager + front_desk
+func RequireHotelFrontDeskOrAbove() gin.HandlerFunc {
+	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager, models.RoleFrontDesk)
+}
+
+// RequireAnyStaff = every role in ValidRoles (all non-guest authenticated users)
 func RequireAnyStaff() gin.HandlerFunc {
 	return RequireRole(models.ValidRoles...)
 }
 
-// AnyAuthenticated = any staff role + guest
+// RequireAnyAuthenticated = any staff role + guest
 func RequireAnyAuthenticated() gin.HandlerFunc {
 	roles := append([]models.UserRole{}, models.ValidRoles...)
 	roles = append(roles, models.RoleGuest)

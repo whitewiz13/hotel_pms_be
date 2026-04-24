@@ -6,17 +6,34 @@ import (
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
 	"github.com/hotelpms/backend/repository"
+	"github.com/hotelpms/backend/utils"
+	"gorm.io/gorm"
 )
 
 type HotelService struct {
+	db        *gorm.DB
 	hotelRepo *repository.HotelRepository
+	userRepo  *repository.UserRepository
 }
 
-func NewHotelService(hotelRepo *repository.HotelRepository) *HotelService {
-	return &HotelService{hotelRepo: hotelRepo}
+func NewHotelService(db *gorm.DB, hotelRepo *repository.HotelRepository, userRepo *repository.UserRepository) *HotelService {
+	return &HotelService{db: db, hotelRepo: hotelRepo, userRepo: userRepo}
 }
 
-func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, error) {
+func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, *models.User, error) {
+	exists, err := s.userRepo.ExistsByEmail(req.AdminEmail)
+	if err != nil {
+		return nil, nil, errors.New("failed to check existing user")
+	}
+	if exists {
+		return nil, nil, errors.New("admin email already registered")
+	}
+
+	hash, err := utils.HashPassword(req.AdminPassword)
+	if err != nil {
+		return nil, nil, errors.New("failed to hash password")
+	}
+
 	hotel := &models.Hotel{
 		Name:        req.Name,
 		Address:     req.Address,
@@ -30,11 +47,29 @@ func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, error)
 		IsActive:    true,
 	}
 
-	if err := s.hotelRepo.Create(hotel); err != nil {
-		return nil, errors.New("failed to create hotel")
+	var admin *models.User
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(hotel).Error; err != nil {
+			return err
+		}
+
+		hotelID := hotel.ID.String()
+		admin = &models.User{
+			Email:        req.AdminEmail,
+			PasswordHash: hash,
+			Name:         req.AdminName,
+			Role:         models.RoleHotelAdmin,
+			HotelID:      &hotelID,
+			IsActive:     true,
+		}
+		return tx.Create(admin).Error
+	})
+
+	if err != nil {
+		return nil, nil, errors.New("failed to create hotel")
 	}
 
-	return hotel, nil
+	return hotel, admin, nil
 }
 
 func (s *HotelService) GetByID(id string) (*models.Hotel, error) {

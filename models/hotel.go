@@ -13,8 +13,9 @@ type Hotel struct {
 	Description string `gorm:"type:text" json:"description"`
 	IsActive    bool   `gorm:"default:true" json:"is_active"`
 
-	Rooms []Room `gorm:"foreignKey:HotelID" json:"rooms,omitempty"`
-	Staff []User `gorm:"foreignKey:HotelID" json:"staff,omitempty"`
+	Rooms     []Room    `gorm:"foreignKey:HotelID" json:"rooms,omitempty"`
+	Staff     []User    `gorm:"foreignKey:HotelID" json:"staff,omitempty"`
+	Amenities []Amenity `gorm:"foreignKey:HotelID" json:"amenities,omitempty"`
 }
 
 func (Hotel) TableName() string {

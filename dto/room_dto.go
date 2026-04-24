@@ -3,7 +3,6 @@ package dto
 import "github.com/hotelpms/backend/models"
 
 type CreateRoomRequest struct {
-	HotelID       string           `json:"hotel_id" binding:"required,uuid"`
 	RoomNumber    string           `json:"room_number" binding:"required"`
 	RoomType      models.RoomType  `json:"room_type" binding:"required,oneof=single double suite deluxe penthouse"`
 	Floor         int              `json:"floor" binding:"required,min=0"`

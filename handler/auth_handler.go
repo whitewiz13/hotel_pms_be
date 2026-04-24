@@ -57,13 +57,15 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 }
 
 func (h *AuthHandler) CreateStaff(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
+
 	var req dto.CreateStaffRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}
 
-	user, err := h.authService.CreateStaff(req)
+	user, err := h.authService.CreateStaff(hotelID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return

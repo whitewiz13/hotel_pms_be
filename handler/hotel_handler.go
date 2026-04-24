@@ -24,17 +24,20 @@ func (h *HotelHandler) Create(c *gin.Context) {
 		return
 	}
 
-	hotel, err := h.hotelService.Create(req)
+	hotel, admin, err := h.hotelService.Create(req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}
 
-	utils.RespondCreated(c, hotel)
+	utils.RespondCreated(c, gin.H{
+		"hotel": hotel,
+		"admin": admin,
+	})
 }
 
 func (h *HotelHandler) GetByID(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("hotel_id")
 
 	hotel, err := h.hotelService.GetByID(id)
 	if err != nil {
@@ -66,7 +69,7 @@ func (h *HotelHandler) GetAll(c *gin.Context) {
 }
 
 func (h *HotelHandler) Update(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("hotel_id")
 
 	var req dto.UpdateHotelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -84,7 +87,7 @@ func (h *HotelHandler) Update(c *gin.Context) {
 }
 
 func (h *HotelHandler) Delete(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("hotel_id")
 
 	if err := h.hotelService.Delete(id); err != nil {
 		utils.RespondBadRequest(c, err.Error())

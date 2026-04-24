@@ -81,13 +81,13 @@ func (s *AuthService) GuestLogin(req dto.GuestLoginRequest) (string, *models.Roo
 	return token, room, nil
 }
 
-func (s *AuthService) CreateStaff(req dto.CreateStaffRequest) (*models.User, error) {
+func (s *AuthService) CreateStaff(hotelID string, req dto.CreateStaffRequest) (*models.User, error) {
 	role := models.UserRole(req.Role)
 	if !models.IsValidRole(role) {
 		return nil, errors.New("invalid role: " + req.Role)
 	}
-	if role == models.RoleSuperAdmin {
-		return nil, errors.New("cannot create another super admin")
+	if role == models.RoleSuperAdmin || role == models.RoleHotelAdmin {
+		return nil, errors.New("cannot create super admin or hotel admin through this endpoint")
 	}
 
 	exists, err := s.userRepo.ExistsByEmail(req.Email)
@@ -109,7 +109,7 @@ func (s *AuthService) CreateStaff(req dto.CreateStaffRequest) (*models.User, err
 		Name:         req.Name,
 		Phone:        req.Phone,
 		Role:         role,
-		HotelID:      &req.HotelID,
+		HotelID:      &hotelID,
 		IsActive:     true,
 	}
 

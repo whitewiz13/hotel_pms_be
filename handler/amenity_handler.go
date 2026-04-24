@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hotelpms/backend/dto"
+	"github.com/hotelpms/backend/models"
 	"github.com/hotelpms/backend/service"
 	"github.com/hotelpms/backend/utils"
 )
@@ -18,13 +19,15 @@ func NewAmenityHandler(amenityService *service.AmenityService) *AmenityHandler {
 }
 
 func (h *AmenityHandler) Create(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
+
 	var req dto.CreateAmenityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}
 
-	amenity, err := h.amenityService.Create(req)
+	amenity, err := h.amenityService.Create(hotelID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
@@ -34,9 +37,10 @@ func (h *AmenityHandler) Create(c *gin.Context) {
 }
 
 func (h *AmenityHandler) GetByID(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	amenity, err := h.amenityService.GetByID(id)
+	amenity, err := h.amenityService.GetByID(id, hotelID)
 	if err != nil {
 		utils.RespondNotFound(c, err.Error())
 		return
@@ -46,6 +50,7 @@ func (h *AmenityHandler) GetByID(c *gin.Context) {
 }
 
 func (h *AmenityHandler) GetAll(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
 	category := c.Query("category")
@@ -57,24 +62,14 @@ func (h *AmenityHandler) GetAll(c *gin.Context) {
 		perPage = 20
 	}
 
-	var amenities []interface{}
+	var amenities []models.Amenity
 	var total int64
 	var err error
 
 	if category != "" {
-		result, t, e := h.amenityService.GetByCategory(category, page, perPage)
-		total = t
-		err = e
-		for _, a := range result {
-			amenities = append(amenities, a)
-		}
+		amenities, total, err = h.amenityService.GetByCategoryAndHotel(category, hotelID, page, perPage)
 	} else {
-		result, t, e := h.amenityService.GetAll(page, perPage)
-		total = t
-		err = e
-		for _, a := range result {
-			amenities = append(amenities, a)
-		}
+		amenities, total, err = h.amenityService.GetByHotelID(hotelID, page, perPage)
 	}
 
 	if err != nil {
@@ -86,6 +81,7 @@ func (h *AmenityHandler) GetAll(c *gin.Context) {
 }
 
 func (h *AmenityHandler) Update(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
 	var req dto.UpdateAmenityRequest
@@ -94,7 +90,7 @@ func (h *AmenityHandler) Update(c *gin.Context) {
 		return
 	}
 
-	amenity, err := h.amenityService.Update(id, req)
+	amenity, err := h.amenityService.Update(id, hotelID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
@@ -104,9 +100,10 @@ func (h *AmenityHandler) Update(c *gin.Context) {
 }
 
 func (h *AmenityHandler) Delete(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	if err := h.amenityService.Delete(id); err != nil {
+	if err := h.amenityService.Delete(id, hotelID); err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}

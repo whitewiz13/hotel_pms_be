@@ -4,6 +4,7 @@ type UserRole string
 
 const (
 	RoleSuperAdmin  UserRole = "super_admin"
+	RoleHotelAdmin  UserRole = "hotel_admin"
 	RoleManager     UserRole = "manager"
 	RoleFrontDesk   UserRole = "front_desk"
 	RoleHousekeeping UserRole = "housekeeping"
@@ -15,6 +16,7 @@ const (
 // Add or remove a line here to support a new role everywhere.
 var ValidRoles = []UserRole{
 	RoleSuperAdmin,
+	RoleHotelAdmin,
 	RoleManager,
 	RoleFrontDesk,
 	RoleHousekeeping,

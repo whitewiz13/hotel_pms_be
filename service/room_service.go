@@ -21,9 +21,9 @@ func NewRoomService(roomRepo *repository.RoomRepository, amenityRepo *repository
 	}
 }
 
-func (s *RoomService) Create(req dto.CreateRoomRequest) (*models.Room, error) {
+func (s *RoomService) Create(hotelID string, req dto.CreateRoomRequest) (*models.Room, error) {
 	room := &models.Room{
-		HotelID:       req.HotelID,
+		HotelID:       hotelID,
 		RoomNumber:    req.RoomNumber,
 		RoomType:      req.RoomType,
 		Floor:         req.Floor,
@@ -39,7 +39,7 @@ func (s *RoomService) Create(req dto.CreateRoomRequest) (*models.Room, error) {
 	}
 
 	if len(req.AmenityIDs) > 0 {
-		amenities, err := s.amenityRepo.FindByIDs(req.AmenityIDs)
+		amenities, err := s.amenityRepo.FindByIDsAndHotel(req.AmenityIDs, hotelID)
 		if err == nil {
 			_ = s.roomRepo.UpdateAmenities(room, amenities)
 		}
@@ -48,9 +48,12 @@ func (s *RoomService) Create(req dto.CreateRoomRequest) (*models.Room, error) {
 	return s.roomRepo.FindByID(room.ID.String())
 }
 
-func (s *RoomService) GetByID(id string) (*models.Room, error) {
+func (s *RoomService) GetByID(id, hotelID string) (*models.Room, error) {
 	room, err := s.roomRepo.FindByID(id)
 	if err != nil {
+		return nil, errors.New("room not found")
+	}
+	if room.HotelID != hotelID {
 		return nil, errors.New("room not found")
 	}
 	return room, nil
@@ -60,9 +63,12 @@ func (s *RoomService) GetByHotelID(hotelID string, page, perPage int) ([]models.
 	return s.roomRepo.FindByHotelID(hotelID, page, perPage)
 }
 
-func (s *RoomService) Update(id string, req dto.UpdateRoomRequest) (*models.Room, error) {
+func (s *RoomService) Update(id, hotelID string, req dto.UpdateRoomRequest) (*models.Room, error) {
 	room, err := s.roomRepo.FindByID(id)
 	if err != nil {
+		return nil, errors.New("room not found")
+	}
+	if room.HotelID != hotelID {
 		return nil, errors.New("room not found")
 	}
 
@@ -96,7 +102,7 @@ func (s *RoomService) Update(id string, req dto.UpdateRoomRequest) (*models.Room
 	}
 
 	if req.AmenityIDs != nil {
-		amenities, err := s.amenityRepo.FindByIDs(req.AmenityIDs)
+		amenities, err := s.amenityRepo.FindByIDsAndHotel(req.AmenityIDs, hotelID)
 		if err == nil {
 			_ = s.roomRepo.UpdateAmenities(room, amenities)
 		}
@@ -105,17 +111,23 @@ func (s *RoomService) Update(id string, req dto.UpdateRoomRequest) (*models.Room
 	return s.roomRepo.FindByID(id)
 }
 
-func (s *RoomService) Delete(id string) error {
-	_, err := s.roomRepo.FindByID(id)
+func (s *RoomService) Delete(id, hotelID string) error {
+	room, err := s.roomRepo.FindByID(id)
 	if err != nil {
+		return errors.New("room not found")
+	}
+	if room.HotelID != hotelID {
 		return errors.New("room not found")
 	}
 	return s.roomRepo.Delete(id)
 }
 
-func (s *RoomService) SetAccessPin(id string) (string, error) {
+func (s *RoomService) SetAccessPin(id, hotelID string) (string, error) {
 	room, err := s.roomRepo.FindByID(id)
 	if err != nil {
+		return "", errors.New("room not found")
+	}
+	if room.HotelID != hotelID {
 		return "", errors.New("room not found")
 	}
 
@@ -132,9 +144,12 @@ func (s *RoomService) SetAccessPin(id string) (string, error) {
 	return pin, nil
 }
 
-func (s *RoomService) ClearAccessPin(id string) error {
+func (s *RoomService) ClearAccessPin(id, hotelID string) error {
 	room, err := s.roomRepo.FindByID(id)
 	if err != nil {
+		return errors.New("room not found")
+	}
+	if room.HotelID != hotelID {
 		return errors.New("room not found")
 	}
 

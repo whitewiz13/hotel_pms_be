@@ -16,8 +16,9 @@ func NewAmenityService(amenityRepo *repository.AmenityRepository) *AmenityServic
 	return &AmenityService{amenityRepo: amenityRepo}
 }
 
-func (s *AmenityService) Create(req dto.CreateAmenityRequest) (*models.Amenity, error) {
+func (s *AmenityService) Create(hotelID string, req dto.CreateAmenityRequest) (*models.Amenity, error) {
 	amenity := &models.Amenity{
+		HotelID:     hotelID,
 		Name:        req.Name,
 		Description: req.Description,
 		Icon:        req.Icon,
@@ -32,24 +33,24 @@ func (s *AmenityService) Create(req dto.CreateAmenityRequest) (*models.Amenity, 
 	return amenity, nil
 }
 
-func (s *AmenityService) GetByID(id string) (*models.Amenity, error) {
-	amenity, err := s.amenityRepo.FindByID(id)
+func (s *AmenityService) GetByID(id, hotelID string) (*models.Amenity, error) {
+	amenity, err := s.amenityRepo.FindByIDAndHotel(id, hotelID)
 	if err != nil {
 		return nil, errors.New("amenity not found")
 	}
 	return amenity, nil
 }
 
-func (s *AmenityService) GetAll(page, perPage int) ([]models.Amenity, int64, error) {
-	return s.amenityRepo.FindAll(page, perPage)
+func (s *AmenityService) GetByHotelID(hotelID string, page, perPage int) ([]models.Amenity, int64, error) {
+	return s.amenityRepo.FindByHotelID(hotelID, page, perPage)
 }
 
-func (s *AmenityService) GetByCategory(category string, page, perPage int) ([]models.Amenity, int64, error) {
-	return s.amenityRepo.FindByCategory(category, page, perPage)
+func (s *AmenityService) GetByCategoryAndHotel(category, hotelID string, page, perPage int) ([]models.Amenity, int64, error) {
+	return s.amenityRepo.FindByCategoryAndHotel(category, hotelID, page, perPage)
 }
 
-func (s *AmenityService) Update(id string, req dto.UpdateAmenityRequest) (*models.Amenity, error) {
-	amenity, err := s.amenityRepo.FindByID(id)
+func (s *AmenityService) Update(id, hotelID string, req dto.UpdateAmenityRequest) (*models.Amenity, error) {
+	amenity, err := s.amenityRepo.FindByIDAndHotel(id, hotelID)
 	if err != nil {
 		return nil, errors.New("amenity not found")
 	}
@@ -77,8 +78,8 @@ func (s *AmenityService) Update(id string, req dto.UpdateAmenityRequest) (*model
 	return amenity, nil
 }
 
-func (s *AmenityService) Delete(id string) error {
-	_, err := s.amenityRepo.FindByID(id)
+func (s *AmenityService) Delete(id, hotelID string) error {
+	_, err := s.amenityRepo.FindByIDAndHotel(id, hotelID)
 	if err != nil {
 		return errors.New("amenity not found")
 	}

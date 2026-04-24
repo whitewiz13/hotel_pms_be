@@ -45,41 +45,39 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(authService))
 		{
-			// Staff management (super_admin + manager)
-			protected.POST("/staff", middleware.RequireManagement(), handlers.Auth.CreateStaff)
-
-			// Hotel routes
+			// Super admin: hotel management
 			hotels := protected.Group("/hotels")
 			{
 				hotels.POST("", middleware.RequireSuperAdmin(), handlers.Hotel.Create)
-				hotels.GET("", middleware.RequireAnyStaff(), handlers.Hotel.GetAll)
-				hotels.GET("/:id", middleware.RequireAnyStaff(), handlers.Hotel.GetByID)
-				hotels.PUT("/:id", middleware.RequireManagement(), handlers.Hotel.Update)
-				hotels.DELETE("/:id", middleware.RequireSuperAdmin(), handlers.Hotel.Delete)
-
-				// Rooms under a hotel
-				hotels.GET("/:hotelId/rooms", middleware.RequireAnyStaff(), handlers.Room.GetByHotelID)
+				hotels.GET("", middleware.RequireSuperAdmin(), handlers.Hotel.GetAll)
 			}
 
-			// Room routes
-			rooms := protected.Group("/rooms")
+			// Hotel-scoped routes (requires hotel access)
+			hotel := protected.Group("/hotels/:hotel_id")
+			hotel.Use(middleware.HotelAccessMiddleware())
 			{
-				rooms.POST("", middleware.RequireFrontDeskOrAbove(), handlers.Room.Create)
-				rooms.GET("/:id", middleware.RequireAnyAuthenticated(), handlers.Room.GetByID)
-				rooms.PUT("/:id", middleware.RequireFrontDeskOrAbove(), handlers.Room.Update)
-				rooms.DELETE("/:id", middleware.RequireManagement(), handlers.Room.Delete)
-				rooms.POST("/:id/pin", middleware.RequireFrontDeskOrAbove(), handlers.Room.GeneratePin)
-				rooms.DELETE("/:id/pin", middleware.RequireFrontDeskOrAbove(), handlers.Room.ClearPin)
-			}
+				hotel.GET("", handlers.Hotel.GetByID)
+				hotel.PUT("", middleware.RequireHotelAdminOrAbove(), handlers.Hotel.Update)
+				hotel.DELETE("", middleware.RequireSuperAdmin(), handlers.Hotel.Delete)
 
-			// Amenity routes
-			amenities := protected.Group("/amenities")
-			{
-				amenities.POST("", middleware.RequireManagement(), handlers.Amenity.Create)
-				amenities.GET("", middleware.RequireAnyAuthenticated(), handlers.Amenity.GetAll)
-				amenities.GET("/:id", middleware.RequireAnyAuthenticated(), handlers.Amenity.GetByID)
-				amenities.PUT("/:id", middleware.RequireManagement(), handlers.Amenity.Update)
-				amenities.DELETE("/:id", middleware.RequireSuperAdmin(), handlers.Amenity.Delete)
+				// Staff management
+				hotel.POST("/staff", middleware.RequireHotelAdminOrAbove(), handlers.Auth.CreateStaff)
+
+				// Rooms
+				hotel.POST("/rooms", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.Create)
+				hotel.GET("/rooms", handlers.Room.GetByHotelID)
+				hotel.GET("/rooms/:id", handlers.Room.GetByID)
+				hotel.PUT("/rooms/:id", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.Update)
+				hotel.DELETE("/rooms/:id", middleware.RequireHotelAdminOrAbove(), handlers.Room.Delete)
+				hotel.POST("/rooms/:id/pin", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.GeneratePin)
+				hotel.DELETE("/rooms/:id/pin", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.ClearPin)
+
+				// Amenities
+				hotel.POST("/amenities", middleware.RequireHotelAdminOrAbove(), handlers.Amenity.Create)
+				hotel.GET("/amenities", handlers.Amenity.GetAll)
+				hotel.GET("/amenities/:id", handlers.Amenity.GetByID)
+				hotel.PUT("/amenities/:id", middleware.RequireHotelAdminOrAbove(), handlers.Amenity.Update)
+				hotel.DELETE("/amenities/:id", middleware.RequireHotelAdminOrAbove(), handlers.Amenity.Delete)
 			}
 		}
 	}

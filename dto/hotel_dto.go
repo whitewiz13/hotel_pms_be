@@ -10,6 +10,11 @@ type CreateHotelRequest struct {
 	Phone       string `json:"phone"`
 	Email       string `json:"email" binding:"omitempty,email"`
 	Description string `json:"description"`
+
+	// Hotel admin credentials
+	AdminEmail    string `json:"admin_email" binding:"required,email"`
+	AdminPassword string `json:"admin_password" binding:"required,min=8"`
+	AdminName     string `json:"admin_name" binding:"required,min=2"`
 }
 
 type UpdateHotelRequest struct {

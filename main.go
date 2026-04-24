@@ -51,7 +51,7 @@ func main() {
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, roomRepo, cfg.JWT)
-	hotelService := service.NewHotelService(hotelRepo)
+	hotelService := service.NewHotelService(db, hotelRepo, userRepo)
 	roomService := service.NewRoomService(roomRepo, amenityRepo)
 	amenityService := service.NewAmenityService(amenityRepo)
 

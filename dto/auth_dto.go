@@ -22,5 +22,4 @@ type CreateStaffRequest struct {
 	Name     string `json:"name" binding:"required,min=2"`
 	Phone    string `json:"phone"`
 	Role     string `json:"role" binding:"required"`
-	HotelID  string `json:"hotel_id" binding:"required,uuid"`
 }
