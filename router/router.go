@@ -98,6 +98,7 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				hotel.POST("/housekeeping", middleware.RequireHotelFrontDeskOrAbove(), handlers.Housekeeping.Assign)
 				hotel.GET("/housekeeping", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.List)
 				hotel.GET("/housekeeping/:id", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.GetByID)
+				hotel.POST("/housekeeping/:id/start", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.Start)
 				hotel.POST("/housekeeping/:id/complete", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.Complete)
 			}
 		}

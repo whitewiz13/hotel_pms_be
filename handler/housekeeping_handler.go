@@ -38,6 +38,21 @@ func (h *HousekeepingHandler) Assign(c *gin.Context) {
 	utils.RespondCreated(c, task)
 }
 
+// Start transitions a task from pending → in_progress.
+func (h *HousekeepingHandler) Start(c *gin.Context) {
+	hotelID := c.Param("hotel_id")
+	id := c.Param("id")
+	claims := middleware.GetClaims(c)
+
+	task, err := h.housekeepingService.Start(id, hotelID, claims.UserID)
+	if err != nil {
+		utils.RespondBadRequest(c, err.Error())
+		return
+	}
+
+	utils.RespondOK(c, task)
+}
+
 // Complete marks a task as done and sets the room to "available".
 func (h *HousekeepingHandler) Complete(c *gin.Context) {
 	hotelID := c.Param("hotel_id")

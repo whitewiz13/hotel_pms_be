@@ -84,6 +84,34 @@ func (s *HousekeepingService) Assign(hotelID, assignedByID string, req dto.Assig
 	return s.housekeepingRepo.FindByID(task.ID.String())
 }
 
+// Start transitions a task from pending → in_progress. The housekeeper claims the task.
+func (s *HousekeepingService) Start(id, hotelID, userID string) (*models.HousekeepingTask, error) {
+	task, err := s.housekeepingRepo.FindByIDAndHotel(id, hotelID)
+	if err != nil {
+		return nil, errors.New("housekeeping task not found")
+	}
+
+	if task.Status != models.HousekeepingStatusPending {
+		return nil, errors.New("only pending tasks can be started")
+	}
+
+	// If assigned to someone else, only that person can start it
+	if task.AssignedToID != nil && *task.AssignedToID != userID {
+		return nil, errors.New("task is assigned to another housekeeper")
+	}
+
+	task.Status = models.HousekeepingStatusInProgress
+	if task.AssignedToID == nil {
+		task.AssignedToID = &userID
+	}
+
+	if err := s.housekeepingRepo.Update(task); err != nil {
+		return nil, errors.New("failed to start housekeeping task")
+	}
+
+	return s.housekeepingRepo.FindByID(id)
+}
+
 // Complete marks a housekeeping task as completed and sets the room to "available".
 func (s *HousekeepingService) Complete(id, hotelID, userID string, req dto.UpdateHousekeepingTaskRequest) (*models.HousekeepingTask, error) {
 	task, err := s.housekeepingRepo.FindByIDAndHotel(id, hotelID)
