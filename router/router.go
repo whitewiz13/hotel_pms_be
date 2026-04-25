@@ -11,12 +11,13 @@ import (
 )
 
 type Handlers struct {
-	Auth        *handler.AuthHandler
-	Hotel       *handler.HotelHandler
-	Room        *handler.RoomHandler
-	Amenity     *handler.AmenityHandler
-	User        *handler.UserHandler
-	Reservation *handler.ReservationHandler
+	Auth         *handler.AuthHandler
+	Hotel        *handler.HotelHandler
+	Room         *handler.RoomHandler
+	Amenity      *handler.AmenityHandler
+	User         *handler.UserHandler
+	Reservation  *handler.ReservationHandler
+	Housekeeping *handler.HousekeepingHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -92,6 +93,12 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				hotel.GET("/amenities/:id", handlers.Amenity.GetByID)
 				hotel.PUT("/amenities/:id", middleware.RequireHotelAdminOrAbove(), handlers.Amenity.Update)
 				hotel.DELETE("/amenities/:id", middleware.RequireHotelAdminOrAbove(), handlers.Amenity.Delete)
+
+				// Housekeeping
+				hotel.POST("/housekeeping", middleware.RequireHotelFrontDeskOrAbove(), handlers.Housekeeping.Assign)
+				hotel.GET("/housekeeping", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.List)
+				hotel.GET("/housekeeping/:id", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.GetByID)
+				hotel.POST("/housekeeping/:id/complete", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.Complete)
 			}
 		}
 	}

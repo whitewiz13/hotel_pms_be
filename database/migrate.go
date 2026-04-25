@@ -70,6 +70,19 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260425_003_housekeeping",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(&models.HousekeepingTask{}); err != nil {
+					return err
+				}
+
+				// Index for listing active tasks per hotel
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_housekeeping_hotel_status ON housekeeping_tasks(hotel_id, status)`)
+
+				return nil
+			},
+		},
 	}
 }
 

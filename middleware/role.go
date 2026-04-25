@@ -99,6 +99,11 @@ func RequireHotelFrontDeskOrAbove() gin.HandlerFunc {
 	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager, models.RoleFrontDesk)
 }
 
+// RequireHousekeepingOrAbove = super_admin + hotel_admin + manager + front_desk + housekeeping
+func RequireHousekeepingOrAbove() gin.HandlerFunc {
+	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager, models.RoleFrontDesk, models.RoleHousekeeping)
+}
+
 // RequireAnyStaff = every role in ValidRoles (all non-guest authenticated users)
 func RequireAnyStaff() gin.HandlerFunc {
 	return RequireRole(models.ValidRoles...)

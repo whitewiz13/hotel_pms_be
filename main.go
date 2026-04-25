@@ -49,6 +49,7 @@ func main() {
 	roomRepo := repository.NewRoomRepository(db)
 	amenityRepo := repository.NewAmenityRepository(db)
 	reservationRepo := repository.NewReservationRepository(db)
+	housekeepingRepo := repository.NewHousekeepingRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, roomRepo, cfg.JWT)
@@ -57,15 +58,17 @@ func main() {
 	amenityService := service.NewAmenityService(amenityRepo)
 	userService := service.NewUserService(userRepo)
 	reservationService := service.NewReservationService(db, reservationRepo, roomRepo)
+	housekeepingService := service.NewHousekeepingService(db, housekeepingRepo, roomRepo, userRepo)
 
 	// Initialize handlers
 	handlers := &router.Handlers{
-		Auth:        handler.NewAuthHandler(authService),
-		Hotel:       handler.NewHotelHandler(hotelService),
-		Room:        handler.NewRoomHandler(roomService),
-		Amenity:     handler.NewAmenityHandler(amenityService),
-		User:        handler.NewUserHandler(userService),
-		Reservation: handler.NewReservationHandler(reservationService),
+		Auth:         handler.NewAuthHandler(authService),
+		Hotel:        handler.NewHotelHandler(hotelService),
+		Room:         handler.NewRoomHandler(roomService),
+		Amenity:      handler.NewAmenityHandler(amenityService),
+		User:         handler.NewUserHandler(userService),
+		Reservation:  handler.NewReservationHandler(reservationService),
+		Housekeeping: handler.NewHousekeepingHandler(housekeepingService),
 	}
 
 	// Setup router
