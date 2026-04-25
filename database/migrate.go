@@ -83,6 +83,54 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260425_004_room_service",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(
+					&models.MenuItem{},
+					&models.Order{},
+					&models.OrderItem{},
+				); err != nil {
+					return err
+				}
+
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_orders_hotel_status ON orders(hotel_id, status)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_orders_reservation ON orders(reservation_id)`)
+
+				return nil
+			},
+		},
+		{
+			Version: "20260425_005_activities",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(
+					&models.Activity{},
+					&models.ActivityBooking{},
+				); err != nil {
+					return err
+				}
+
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_activity_bookings_hotel_status ON activity_bookings(hotel_id, status)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_activity_bookings_reservation ON activity_bookings(reservation_id)`)
+
+				return nil
+			},
+		},
+		{
+			Version: "20260425_006_billing",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(
+					&models.Bill{},
+					&models.BillLineItem{},
+				); err != nil {
+					return err
+				}
+
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_bills_hotel_status ON bills(hotel_id, status)`)
+
+				return nil
+			},
+		},
 	}
 }
 

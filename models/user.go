@@ -8,8 +8,9 @@ const (
 	RoleManager     UserRole = "manager"
 	RoleFrontDesk   UserRole = "front_desk"
 	RoleHousekeeping UserRole = "housekeeping"
-	RoleStaff       UserRole = "staff"
-	RoleGuest       UserRole = "guest" // virtual role for JWT only, not stored
+	RoleRoomService  UserRole = "room_service"
+	RoleStaff        UserRole = "staff"
+	RoleGuest        UserRole = "guest" // virtual role for JWT only, not stored
 )
 
 // ValidRoles lists every role that can be assigned to a user.
@@ -20,6 +21,7 @@ var ValidRoles = []UserRole{
 	RoleManager,
 	RoleFrontDesk,
 	RoleHousekeeping,
+	RoleRoomService,
 	RoleStaff,
 }
 

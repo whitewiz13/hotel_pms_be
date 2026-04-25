@@ -19,6 +19,10 @@ type Handlers struct {
 	Reservation  *handler.ReservationHandler
 	Housekeeping *handler.HousekeepingHandler
 	Dashboard    *handler.DashboardHandler
+	Menu         *handler.MenuHandler
+	Order        *handler.OrderHandler
+	Activity     *handler.ActivityHandler
+	Bill         *handler.BillHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -101,6 +105,40 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				hotel.GET("/housekeeping/:id", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.GetByID)
 				hotel.POST("/housekeeping/:id/start", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.Start)
 				hotel.POST("/housekeeping/:id/complete", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.Complete)
+
+				// Menu (Room Service)
+				hotel.POST("/menu", middleware.RequireHotelManagement(), handlers.Menu.Create)
+				hotel.GET("/menu", middleware.RequireAnyAuthenticated(), handlers.Menu.List)
+				hotel.GET("/menu/:id", middleware.RequireAnyAuthenticated(), handlers.Menu.GetByID)
+				hotel.PUT("/menu/:id", middleware.RequireHotelManagement(), handlers.Menu.Update)
+				hotel.DELETE("/menu/:id", middleware.RequireHotelManagement(), handlers.Menu.Delete)
+
+				// Orders (Room Service)
+				hotel.POST("/orders", middleware.RequireHotelFrontDeskOrAbove(), handlers.Order.Create)
+				hotel.GET("/orders", middleware.RequireRoomServiceOrAbove(), handlers.Order.List)
+				hotel.GET("/orders/:id", middleware.RequireRoomServiceOrAbove(), handlers.Order.GetByID)
+				hotel.POST("/orders/:id/status", middleware.RequireRoomServiceOrAbove(), handlers.Order.UpdateStatus)
+				hotel.POST("/orders/:id/assign", middleware.RequireHotelFrontDeskOrAbove(), handlers.Order.Assign)
+
+				// Activities
+				hotel.POST("/activities", middleware.RequireHotelManagement(), handlers.Activity.Create)
+				hotel.GET("/activities", middleware.RequireAnyAuthenticated(), handlers.Activity.List)
+				hotel.GET("/activities/:id", middleware.RequireAnyAuthenticated(), handlers.Activity.GetByID)
+				hotel.PUT("/activities/:id", middleware.RequireHotelManagement(), handlers.Activity.Update)
+				hotel.DELETE("/activities/:id", middleware.RequireHotelManagement(), handlers.Activity.Delete)
+
+				// Activity Bookings
+				hotel.POST("/activity-bookings", middleware.RequireHotelFrontDeskOrAbove(), handlers.Activity.CreateBooking)
+				hotel.GET("/activity-bookings", middleware.RequireHotelFrontDeskOrAbove(), handlers.Activity.ListBookings)
+				hotel.GET("/activity-bookings/:id", middleware.RequireHotelFrontDeskOrAbove(), handlers.Activity.GetBookingByID)
+				hotel.POST("/activity-bookings/:id/status", middleware.RequireHotelFrontDeskOrAbove(), handlers.Activity.UpdateBookingStatus)
+
+				// Billing
+				hotel.POST("/reservations/:id/bill", middleware.RequireHotelFrontDeskOrAbove(), handlers.Bill.Generate)
+				hotel.GET("/reservations/:id/bill", middleware.RequireHotelFrontDeskOrAbove(), handlers.Bill.GetByReservation)
+				hotel.GET("/bills", middleware.RequireHotelFrontDeskOrAbove(), handlers.Bill.List)
+				hotel.GET("/bills/:id", middleware.RequireHotelFrontDeskOrAbove(), handlers.Bill.GetByID)
+				hotel.POST("/bills/:id/pay", middleware.RequireHotelFrontDeskOrAbove(), handlers.Bill.MarkPaid)
 
 				// Dashboard
 				hotel.GET("/dashboard/stats", middleware.RequireHotelFrontDeskOrAbove(), handlers.Dashboard.GetStats)
