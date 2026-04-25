@@ -76,3 +76,11 @@ func (r *BillRepository) FindByHotelID(hotelID, status, reservationID string, pa
 func (r *BillRepository) Update(bill *models.Bill) error {
 	return r.db.Save(bill).Error
 }
+
+func (r *BillRepository) DeleteByReservationID(tx *gorm.DB, reservationID string) error {
+	// Hard delete line items first, then the bill (soft delete would leave the unique index conflict)
+	if err := tx.Unscoped().Where("bill_id IN (SELECT id FROM bills WHERE reservation_id = ?)", reservationID).Delete(&models.BillLineItem{}).Error; err != nil {
+		return err
+	}
+	return tx.Unscoped().Where("reservation_id = ?", reservationID).Delete(&models.Bill{}).Error
+}

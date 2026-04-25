@@ -40,10 +40,15 @@ func NewBillService(
 
 // Generate creates a bill for a reservation, calculating all charges.
 func (s *BillService) Generate(hotelID, reservationID string, req dto.GenerateBillRequest) (*models.Bill, error) {
-	// Check if bill already exists
+	// If a bill already exists for this reservation, delete it so we can regenerate
 	existing, _ := s.billRepo.FindByReservationID(reservationID)
 	if existing != nil {
-		return nil, errors.New("bill already exists for this reservation")
+		if existing.Status == models.BillStatusPaid {
+			return nil, errors.New("cannot regenerate a bill that is already paid")
+		}
+		if err := s.billRepo.DeleteByReservationID(s.db, reservationID); err != nil {
+			return nil, errors.New("failed to remove existing bill for regeneration")
+		}
 	}
 
 	// Get reservation

@@ -30,7 +30,7 @@ type Room struct {
 	PricePerNight float64   `gorm:"not null;default:0" json:"price_per_night"`
 	Description  string     `gorm:"type:text" json:"description"`
 	MaxOccupancy int        `gorm:"not null;default:2" json:"max_occupancy"`
-	AccessPin    string     `gorm:"size:6" json:"-"`
+	AccessPin    string     `gorm:"size:6" json:"access_pin,omitempty"`
 	IsActive     bool       `gorm:"default:true" json:"is_active"`
 
 	Hotel     Hotel     `gorm:"foreignKey:HotelID" json:"-"`

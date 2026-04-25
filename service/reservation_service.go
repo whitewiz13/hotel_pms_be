@@ -7,6 +7,7 @@ import (
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
 	"github.com/hotelpms/backend/repository"
+	"github.com/hotelpms/backend/utils"
 	"gorm.io/gorm"
 )
 
@@ -16,13 +17,15 @@ type ReservationService struct {
 	db              *gorm.DB
 	reservationRepo *repository.ReservationRepository
 	roomRepo        *repository.RoomRepository
+	billRepo        *repository.BillRepository
 }
 
-func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository) *ReservationService {
+func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository, billRepo *repository.BillRepository) *ReservationService {
 	return &ReservationService{
 		db:              db,
 		reservationRepo: reservationRepo,
 		roomRepo:        roomRepo,
+		billRepo:        billRepo,
 	}
 }
 
@@ -171,19 +174,25 @@ func (s *ReservationService) List(hotelID string, query dto.ListReservationsQuer
 }
 
 // CheckIn transitions a reservation from reserved → checked_in.
-func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, error) {
+// Generates an access PIN for the guest and sets it on the room.
+func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, string, error) {
 	reservation, err := s.reservationRepo.FindByIDAndHotel(id, hotelID)
 	if err != nil {
-		return nil, errors.New("reservation not found")
+		return nil, "", errors.New("reservation not found")
 	}
 
 	if reservation.Status != models.ReservationStatusReserved {
-		return nil, errors.New("only reserved bookings can be checked in")
+		return nil, "", errors.New("only reserved bookings can be checked in")
 	}
 
 	today := time.Now().Truncate(24 * time.Hour)
 	if reservation.CheckInDate.After(today) {
-		return nil, errors.New("cannot check in before the check-in date")
+		return nil, "", errors.New("cannot check in before the check-in date")
+	}
+
+	pin, err := utils.GeneratePin(6)
+	if err != nil {
+		return nil, "", errors.New("failed to generate access pin")
 	}
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
@@ -192,8 +201,12 @@ func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, e
 			return errors.New("failed to check in")
 		}
 
-		// Mark room as occupied
-		if err := tx.Model(&models.Room{}).Where("id = ?", reservation.RoomID).Update("status", models.RoomStatusOccupied).Error; err != nil {
+		// Mark room as occupied and set guest access PIN
+		if err := tx.Model(&models.Room{}).Where("id = ?", reservation.RoomID).
+			Updates(map[string]interface{}{
+				"status":     models.RoomStatusOccupied,
+				"access_pin": pin,
+			}).Error; err != nil {
 			return errors.New("failed to update room status")
 		}
 
@@ -201,10 +214,10 @@ func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, e
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return reservation, nil
+	return reservation, pin, nil
 }
 
 // CheckOut transitions a reservation from checked_in → checked_out and frees inventory.
@@ -218,6 +231,12 @@ func (s *ReservationService) CheckOut(id, hotelID string) (*models.Reservation, 
 		return nil, errors.New("only checked-in bookings can be checked out")
 	}
 
+	// Block checkout if there is a pending (unpaid) bill
+	existingBill, _ := s.billRepo.FindByReservationID(id)
+	if existingBill != nil && existingBill.Status == models.BillStatusPending {
+		return nil, errors.New("cannot check out: there is a pending bill for this reservation, please settle it first")
+	}
+
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		reservation.Status = models.ReservationStatusCheckedOut
 		if err := tx.Save(reservation).Error; err != nil {
@@ -229,8 +248,12 @@ func (s *ReservationService) CheckOut(id, hotelID string) (*models.Reservation, 
 			return errors.New("failed to release inventory")
 		}
 
-		// Mark room as dirty — needs housekeeping assignment
-		if err := tx.Model(&models.Room{}).Where("id = ?", reservation.RoomID).Update("status", models.RoomStatusDirty).Error; err != nil {
+		// Mark room as dirty and clear guest access PIN
+		if err := tx.Model(&models.Room{}).Where("id = ?", reservation.RoomID).
+			Updates(map[string]interface{}{
+				"status":     models.RoomStatusDirty,
+				"access_pin": "",
+			}).Error; err != nil {
 			return errors.New("failed to update room status")
 		}
 

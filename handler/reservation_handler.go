@@ -96,13 +96,16 @@ func (h *ReservationHandler) CheckIn(c *gin.Context) {
 	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	reservation, err := h.reservationService.CheckIn(id, hotelID)
+	reservation, pin, err := h.reservationService.CheckIn(id, hotelID)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}
 
-	utils.RespondOK(c, reservation)
+	utils.RespondOK(c, gin.H{
+		"reservation": reservation,
+		"access_pin":  pin,
+	})
 }
 
 func (h *ReservationHandler) CheckOut(c *gin.Context) {
