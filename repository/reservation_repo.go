@@ -108,26 +108,39 @@ func (r *ReservationRepository) LockInventoryForUpdate(tx *gorm.DB, roomID, hote
 	return int64(len(records)), err
 }
 
-// CreateInventoryRecords creates inventory records marking dates as booked.
+// CreateInventoryRecords marks inventory dates as booked for a reservation.
 func (r *ReservationRepository) CreateInventoryRecords(tx *gorm.DB, hotelID, roomID, reservationID string, checkIn, checkOut time.Time) error {
 	current := checkIn
 	for current.Before(checkOut) {
-		record := models.RoomInventory{
-			HotelID:       hotelID,
-			RoomID:        roomID,
-			Date:          current,
-			IsAvailable:   false,
-			ReservationID: &reservationID,
+		result := tx.Model(&models.RoomInventory{}).
+			Where("room_id = ? AND hotel_id = ? AND date = ?", roomID, hotelID, current).
+			Updates(map[string]interface{}{
+				"is_available":   false,
+				"reservation_id": reservationID,
+			})
+		if result.Error != nil {
+			return result.Error
 		}
-		if err := tx.Create(&record).Error; err != nil {
-			return err
+		if result.RowsAffected == 0 {
+			// No existing record — create one via raw SQL to avoid GORM zero-value issue with is_available
+			if err := tx.Exec(
+				`INSERT INTO room_inventories (hotel_id, room_id, date, is_available, reservation_id) VALUES (?, ?, ?, false, ?)`,
+				hotelID, roomID, current, reservationID,
+			).Error; err != nil {
+				return err
+			}
 		}
 		current = current.AddDate(0, 0, 1)
 	}
 	return nil
 }
 
-// FreeInventory removes inventory records for a reservation (used on cancellation).
+// FreeInventory marks inventory records as available again for a cancelled reservation.
 func (r *ReservationRepository) FreeInventory(tx *gorm.DB, reservationID string) error {
-	return tx.Where("reservation_id = ?", reservationID).Delete(&models.RoomInventory{}).Error
+	return tx.Model(&models.RoomInventory{}).
+		Where("reservation_id = ?", reservationID).
+		Updates(map[string]interface{}{
+			"is_available":   true,
+			"reservation_id": nil,
+		}).Error
 }

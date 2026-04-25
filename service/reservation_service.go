@@ -70,6 +70,9 @@ func (s *ReservationService) Create(hotelID string, req dto.CreateReservationReq
 	if !room.IsActive {
 		return nil, errors.New("room is not active")
 	}
+	if room.Status == models.RoomStatusDirty || room.Status == models.RoomStatusCleaning || room.Status == models.RoomStatusMaintenance {
+		return nil, errors.New("room is not available for booking")
+	}
 
 	reservation := &models.Reservation{
 		HotelID:      hotelID,
@@ -169,15 +172,28 @@ func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, e
 		return nil, errors.New("cannot check in before the check-in date")
 	}
 
-	reservation.Status = models.ReservationStatusCheckedIn
-	if err := s.reservationRepo.Update(reservation); err != nil {
-		return nil, errors.New("failed to check in")
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		reservation.Status = models.ReservationStatusCheckedIn
+		if err := tx.Save(reservation).Error; err != nil {
+			return errors.New("failed to check in")
+		}
+
+		// Mark room as occupied
+		if err := tx.Model(&models.Room{}).Where("id = ?", reservation.RoomID).Update("status", models.RoomStatusOccupied).Error; err != nil {
+			return errors.New("failed to update room status")
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return reservation, nil
 }
 
-// CheckOut transitions a reservation from checked_in → checked_out.
+// CheckOut transitions a reservation from checked_in → checked_out and frees inventory.
 func (s *ReservationService) CheckOut(id, hotelID string) (*models.Reservation, error) {
 	reservation, err := s.reservationRepo.FindByIDAndHotel(id, hotelID)
 	if err != nil {
@@ -188,9 +204,27 @@ func (s *ReservationService) CheckOut(id, hotelID string) (*models.Reservation, 
 		return nil, errors.New("only checked-in bookings can be checked out")
 	}
 
-	reservation.Status = models.ReservationStatusCheckedOut
-	if err := s.reservationRepo.Update(reservation); err != nil {
-		return nil, errors.New("failed to check out")
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		reservation.Status = models.ReservationStatusCheckedOut
+		if err := tx.Save(reservation).Error; err != nil {
+			return errors.New("failed to check out")
+		}
+
+		// Free up inventory so the room can be rebooked
+		if err := s.reservationRepo.FreeInventory(tx, reservation.ID.String()); err != nil {
+			return errors.New("failed to release inventory")
+		}
+
+		// Mark room as dirty — needs housekeeping assignment
+		if err := tx.Model(&models.Room{}).Where("id = ?", reservation.RoomID).Update("status", models.RoomStatusDirty).Error; err != nil {
+			return errors.New("failed to update room status")
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return reservation, nil
@@ -216,6 +250,11 @@ func (s *ReservationService) Cancel(id, hotelID string) (*models.Reservation, er
 		// Free up inventory
 		if err := s.reservationRepo.FreeInventory(tx, reservation.ID.String()); err != nil {
 			return errors.New("failed to release inventory")
+		}
+
+		// Mark room as available again
+		if err := tx.Model(&models.Room{}).Where("id = ?", reservation.RoomID).Update("status", models.RoomStatusAvailable).Error; err != nil {
+			return errors.New("failed to update room status")
 		}
 
 		return nil

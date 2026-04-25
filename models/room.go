@@ -15,8 +15,9 @@ type RoomStatus string
 const (
 	RoomStatusAvailable   RoomStatus = "available"
 	RoomStatusOccupied    RoomStatus = "occupied"
-	RoomStatusMaintenance RoomStatus = "maintenance"
+	RoomStatusDirty       RoomStatus = "dirty"
 	RoomStatusCleaning    RoomStatus = "cleaning"
+	RoomStatusMaintenance RoomStatus = "maintenance"
 )
 
 type Room struct {
