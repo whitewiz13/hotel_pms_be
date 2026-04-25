@@ -59,8 +59,8 @@ func (s *RoomService) GetByID(id, hotelID string) (*models.Room, error) {
 	return room, nil
 }
 
-func (s *RoomService) GetByHotelID(hotelID string, page, perPage int) ([]models.Room, int64, error) {
-	return s.roomRepo.FindByHotelID(hotelID, page, perPage)
+func (s *RoomService) GetByHotelID(hotelID, status string, page, perPage int) ([]models.Room, int64, error) {
+	return s.roomRepo.FindByHotelID(hotelID, status, page, perPage)
 }
 
 func (s *RoomService) Update(id, hotelID string, req dto.UpdateRoomRequest) (*models.Room, error) {

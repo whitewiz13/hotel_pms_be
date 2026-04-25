@@ -33,8 +33,8 @@ All housekeeping endpoints are scoped to `/api/hotels/:hotel_id/housekeeping`.
 
 **State transitions:**
 ```
-pending → completed
-in_progress → completed
+pending → in_progress → completed
+pending → completed (skip start)
 ```
 
 ---
@@ -44,7 +44,7 @@ in_progress → completed
 | Action | Minimum Role |
 |--------|-------------|
 | Assign task | Front Desk+ (`super_admin`, `hotel_admin`, `manager`, `front_desk`) |
-| List / Get / Complete task | Housekeeping+ (`super_admin`, `hotel_admin`, `manager`, `front_desk`, `housekeeping`) |
+| List / Get / Start / Complete task | Housekeeping+ (`super_admin`, `hotel_admin`, `manager`, `front_desk`, `housekeeping`) |
 
 ---
 
@@ -55,6 +55,7 @@ in_progress → completed
 | POST | `/api/hotels/:hotel_id/housekeeping` | Front Desk+ | Assign room to housekeeping |
 | GET | `/api/hotels/:hotel_id/housekeeping` | Housekeeping+ | List tasks (priority-ordered) |
 | GET | `/api/hotels/:hotel_id/housekeeping/:id` | Housekeeping+ | Get task details |
+| POST | `/api/hotels/:hotel_id/housekeeping/:id/start` | Housekeeping+ | Start working on task |
 | POST | `/api/hotels/:hotel_id/housekeeping/:id/complete` | Housekeeping+ | Mark task as done |
 
 ---
@@ -182,6 +183,37 @@ Get a single housekeeping task with room and user details.
 
 ---
 
+## POST /api/hotels/:hotel_id/housekeeping/:id/start
+
+Transition a task from `pending` → `in_progress`. The housekeeper claims the task.
+
+**Rules:**
+- Task must be in `pending` status
+- If task is assigned to a specific housekeeper, only that user can start it
+- If task is unassigned, any housekeeping+ user can start it (and becomes the assignee)
+
+**Request Body:** None
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "status": "in_progress",
+    "assigned_to_id": "uuid",
+    ...
+  }
+}
+```
+
+**Error 400:**
+- `"housekeeping task not found"` — invalid id or wrong hotel
+- `"only pending tasks can be started"` — wrong status
+- `"task is assigned to another housekeeper"` — wrong user
+
+---
+
 ## POST /api/hotels/:hotel_id/housekeeping/:id/complete
 
 Mark a housekeeping task as completed. Sets the room status to `available`.
@@ -233,7 +265,11 @@ Mark a housekeeping task as completed. Sets the room status to `available`.
    GET /housekeeping?status=pending
    └── Tasks sorted: urgent > high > normal > low
 
-4. Housekeeper completes the task
+4. Housekeeper starts working
+   POST /housekeeping/:id/start
+   └── Task status → "in_progress"
+
+5. Housekeeper completes the task
    POST /housekeeping/:id/complete
    └── Task status → "completed"
    └── Room status → "available"

@@ -18,6 +18,7 @@ type Handlers struct {
 	User         *handler.UserHandler
 	Reservation  *handler.ReservationHandler
 	Housekeeping *handler.HousekeepingHandler
+	Dashboard    *handler.DashboardHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -100,6 +101,10 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				hotel.GET("/housekeeping/:id", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.GetByID)
 				hotel.POST("/housekeeping/:id/start", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.Start)
 				hotel.POST("/housekeeping/:id/complete", middleware.RequireHousekeepingOrAbove(), handlers.Housekeeping.Complete)
+
+				// Dashboard
+				hotel.GET("/dashboard/stats", middleware.RequireHotelFrontDeskOrAbove(), handlers.Dashboard.GetStats)
+				hotel.GET("/activity", middleware.RequireHotelFrontDeskOrAbove(), handlers.Dashboard.GetActivity)
 			}
 		}
 	}

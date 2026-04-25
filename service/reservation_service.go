@@ -137,7 +137,7 @@ func (s *ReservationService) List(hotelID string, query dto.ListReservationsQuer
 		perPage = 20
 	}
 
-	var dateFrom, dateTo *time.Time
+	var dateFrom, dateTo, checkInDate, checkOutDate *time.Time
 	if query.DateFrom != "" {
 		t, err := time.Parse(dateLayout, query.DateFrom)
 		if err != nil {
@@ -152,8 +152,22 @@ func (s *ReservationService) List(hotelID string, query dto.ListReservationsQuer
 		}
 		dateTo = &t
 	}
+	if query.CheckInDate != "" {
+		t, err := time.Parse(dateLayout, query.CheckInDate)
+		if err != nil {
+			return nil, 0, errors.New("invalid check_in_date format, use YYYY-MM-DD")
+		}
+		checkInDate = &t
+	}
+	if query.CheckOutDate != "" {
+		t, err := time.Parse(dateLayout, query.CheckOutDate)
+		if err != nil {
+			return nil, 0, errors.New("invalid check_out_date format, use YYYY-MM-DD")
+		}
+		checkOutDate = &t
+	}
 
-	return s.reservationRepo.FindByHotelID(hotelID, query.Status, query.RoomID, dateFrom, dateTo, page, perPage)
+	return s.reservationRepo.FindByHotelID(hotelID, query.Status, query.RoomID, dateFrom, dateTo, checkInDate, checkOutDate, page, perPage)
 }
 
 // CheckIn transitions a reservation from reserved → checked_in.

@@ -38,7 +38,7 @@ func (r *ReservationRepository) FindByIDAndHotel(id, hotelID string) (*models.Re
 	return &reservation, nil
 }
 
-func (r *ReservationRepository) FindByHotelID(hotelID string, status, roomID string, dateFrom, dateTo *time.Time, page, perPage int) ([]models.Reservation, int64, error) {
+func (r *ReservationRepository) FindByHotelID(hotelID string, status, roomID string, dateFrom, dateTo, checkInDate, checkOutDate *time.Time, page, perPage int) ([]models.Reservation, int64, error) {
 	var reservations []models.Reservation
 	var total int64
 
@@ -55,6 +55,12 @@ func (r *ReservationRepository) FindByHotelID(hotelID string, status, roomID str
 	}
 	if dateTo != nil {
 		query = query.Where("check_out_date <= ?", *dateTo)
+	}
+	if checkInDate != nil {
+		query = query.Where("check_in_date = ?", *checkInDate)
+	}
+	if checkOutDate != nil {
+		query = query.Where("check_out_date = ?", *checkOutDate)
 	}
 
 	query.Model(&models.Reservation{}).Count(&total)

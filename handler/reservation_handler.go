@@ -73,12 +73,14 @@ func (h *ReservationHandler) List(c *gin.Context) {
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
 
 	query := dto.ListReservationsQuery{
-		Status:   c.Query("status"),
-		RoomID:   c.Query("room_id"),
-		DateFrom: c.Query("date_from"),
-		DateTo:   c.Query("date_to"),
-		Page:     page,
-		PerPage:  perPage,
+		Status:       c.Query("status"),
+		RoomID:       c.Query("room_id"),
+		DateFrom:     c.Query("date_from"),
+		DateTo:       c.Query("date_to"),
+		CheckInDate:  c.Query("check_in_date"),
+		CheckOutDate: c.Query("check_out_date"),
+		Page:         page,
+		PerPage:      perPage,
 	}
 
 	reservations, total, err := h.reservationService.List(hotelID, query)

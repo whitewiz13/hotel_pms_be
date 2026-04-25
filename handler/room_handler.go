@@ -60,7 +60,9 @@ func (h *RoomHandler) GetByHotelID(c *gin.Context) {
 		perPage = 20
 	}
 
-	rooms, total, err := h.roomService.GetByHotelID(hotelID, page, perPage)
+	status := c.Query("status")
+
+	rooms, total, err := h.roomService.GetByHotelID(hotelID, status, page, perPage)
 	if err != nil {
 		utils.RespondInternalError(c, "failed to fetch rooms")
 		return

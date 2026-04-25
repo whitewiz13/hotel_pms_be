@@ -10,12 +10,14 @@ type CreateReservationRequest struct {
 }
 
 type ListReservationsQuery struct {
-	Status   string `form:"status"`
-	RoomID   string `form:"room_id"`
-	DateFrom string `form:"date_from"` // YYYY-MM-DD
-	DateTo   string `form:"date_to"`   // YYYY-MM-DD
-	Page     int    `form:"page"`
-	PerPage  int    `form:"per_page"`
+	Status       string `form:"status"`
+	RoomID       string `form:"room_id"`
+	DateFrom     string `form:"date_from"`      // YYYY-MM-DD range filter: check_in_date >= date_from
+	DateTo       string `form:"date_to"`        // YYYY-MM-DD range filter: check_out_date <= date_to
+	CheckInDate  string `form:"check_in_date"`  // YYYY-MM-DD exact match on check_in_date
+	CheckOutDate string `form:"check_out_date"` // YYYY-MM-DD exact match on check_out_date
+	Page         int    `form:"page"`
+	PerPage      int    `form:"per_page"`
 }
 
 type AvailabilityQuery struct {

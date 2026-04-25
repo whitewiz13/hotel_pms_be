@@ -26,11 +26,14 @@ func (r *RoomRepository) FindByID(id string) (*models.Room, error) {
 	return &room, nil
 }
 
-func (r *RoomRepository) FindByHotelID(hotelID string, page, perPage int) ([]models.Room, int64, error) {
+func (r *RoomRepository) FindByHotelID(hotelID, status string, page, perPage int) ([]models.Room, int64, error) {
 	var rooms []models.Room
 	var total int64
 
 	query := r.db.Where("hotel_id = ?", hotelID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
 	query.Model(&models.Room{}).Count(&total)
 
 	err := query.Preload("Amenities").Offset((page - 1) * perPage).Limit(perPage).Find(&rooms).Error
