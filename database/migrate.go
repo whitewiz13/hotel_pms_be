@@ -51,6 +51,25 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260425_002_reservations",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(
+					&models.Reservation{},
+					&models.RoomInventory{},
+				); err != nil {
+					return err
+				}
+
+				// Unique constraint: one inventory record per room per date
+				db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_room_inventories_room_date ON room_inventories(room_id, date)`)
+
+				// Index for fast availability lookups
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_room_inventories_hotel_date ON room_inventories(hotel_id, date, is_available)`)
+
+				return nil
+			},
+		},
 	}
 }
 

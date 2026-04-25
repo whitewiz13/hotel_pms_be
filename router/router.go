@@ -11,11 +11,12 @@ import (
 )
 
 type Handlers struct {
-	Auth    *handler.AuthHandler
-	Hotel   *handler.HotelHandler
-	Room    *handler.RoomHandler
-	Amenity *handler.AmenityHandler
-	User    *handler.UserHandler
+	Auth        *handler.AuthHandler
+	Hotel       *handler.HotelHandler
+	Room        *handler.RoomHandler
+	Amenity     *handler.AmenityHandler
+	User        *handler.UserHandler
+	Reservation *handler.ReservationHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -75,6 +76,15 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				hotel.DELETE("/rooms/:id", middleware.RequireHotelAdminOrAbove(), handlers.Room.Delete)
 				hotel.POST("/rooms/:id/pin", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.GeneratePin)
 				hotel.DELETE("/rooms/:id/pin", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.ClearPin)
+
+				// Reservations
+				hotel.GET("/availability", middleware.RequireHotelFrontDeskOrAbove(), handlers.Reservation.GetAvailability)
+				hotel.POST("/reservations", middleware.RequireHotelFrontDeskOrAbove(), handlers.Reservation.Create)
+				hotel.GET("/reservations", middleware.RequireHotelFrontDeskOrAbove(), handlers.Reservation.List)
+				hotel.GET("/reservations/:id", middleware.RequireHotelFrontDeskOrAbove(), handlers.Reservation.GetByID)
+				hotel.POST("/reservations/:id/check-in", middleware.RequireHotelFrontDeskOrAbove(), handlers.Reservation.CheckIn)
+				hotel.POST("/reservations/:id/check-out", middleware.RequireHotelFrontDeskOrAbove(), handlers.Reservation.CheckOut)
+				hotel.POST("/reservations/:id/cancel", middleware.RequireHotelFrontDeskOrAbove(), handlers.Reservation.Cancel)
 
 				// Amenities
 				hotel.POST("/amenities", middleware.RequireHotelAdminOrAbove(), handlers.Amenity.Create)
