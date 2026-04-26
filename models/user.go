@@ -41,10 +41,12 @@ type User struct {
 	Name         string   `gorm:"not null;size:255" json:"name"`
 	Phone        string   `gorm:"size:20" json:"phone"`
 	Role         UserRole `gorm:"type:varchar(30);not null;default:'staff'" json:"role"`
+	RoleID       *string  `gorm:"type:uuid;index" json:"role_id,omitempty"`
 	HotelID      *string  `gorm:"type:uuid;index" json:"hotel_id,omitempty"`
 	IsActive     bool     `gorm:"default:true" json:"is_active"`
 
-	Hotel *Hotel `gorm:"foreignKey:HotelID" json:"hotel,omitempty"`
+	Hotel        *Hotel `gorm:"foreignKey:HotelID" json:"hotel,omitempty"`
+	AssignedRole *Role  `gorm:"foreignKey:RoleID" json:"assigned_role,omitempty"`
 }
 
 func (User) TableName() string {

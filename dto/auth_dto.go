@@ -21,5 +21,5 @@ type CreateStaffRequest struct {
 	Password string `json:"password" binding:"required,min=8"`
 	Name     string `json:"name" binding:"required,min=2"`
 	Phone    string `json:"phone"`
-	Role     string `json:"role" binding:"required"`
+	RoleID   string `json:"role_id" binding:"required,uuid"`
 }

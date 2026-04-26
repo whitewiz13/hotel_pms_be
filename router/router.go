@@ -27,6 +27,7 @@ type Handlers struct {
 	Bill          *handler.BillHandler
 	Guest         *handler.GuestHandler
 	GuestSettings *handler.GuestSettingsHandler
+	Role          *handler.RoleHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -161,6 +162,14 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				// Guest Settings (admin)
 				hotel.POST("/guest-settings", middleware.RequireHotelAdminOrAbove(), handlers.GuestSettings.Save)
 				hotel.GET("/guest-settings", middleware.RequireHotelAdminOrAbove(), handlers.GuestSettings.Get)
+
+				// Roles & Permissions
+				hotel.GET("/permissions", middleware.RequireHotelAdminOrAbove(), handlers.Role.GetPermissions)
+				hotel.POST("/roles", middleware.RequireHotelAdminOrAbove(), handlers.Role.Create)
+				hotel.GET("/roles", middleware.RequireHotelAdminOrAbove(), handlers.Role.GetAll)
+				hotel.GET("/roles/:id", middleware.RequireHotelAdminOrAbove(), handlers.Role.GetByID)
+				hotel.PUT("/roles/:id", middleware.RequireHotelAdminOrAbove(), handlers.Role.Update)
+				hotel.DELETE("/roles/:id", middleware.RequireHotelAdminOrAbove(), handlers.Role.Delete)
 			}
 
 			// Guest self-service (authenticated guests only)

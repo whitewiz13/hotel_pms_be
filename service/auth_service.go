@@ -16,25 +16,29 @@ type AuthService struct {
 	userRepo  *repository.UserRepository
 	roomRepo  *repository.RoomRepository
 	hotelRepo *repository.HotelRepository
+	roleRepo  *repository.RoleRepository
 	jwtCfg    config.JWTConfig
 }
 
 type JWTClaims struct {
-	UserID     string          `json:"user_id,omitempty"`
-	Email      string          `json:"email,omitempty"`
-	Role       models.UserRole `json:"role"`
-	HotelID    string          `json:"hotel_id,omitempty"`
-	RoomID     string          `json:"room_id,omitempty"`
-	RoomNumber string          `json:"room_number,omitempty"`
-	IsGuest    bool            `json:"is_guest"`
+	UserID      string          `json:"user_id,omitempty"`
+	Email       string          `json:"email,omitempty"`
+	Role        models.UserRole `json:"role"`
+	RoleID      string          `json:"role_id,omitempty"`
+	HotelID     string          `json:"hotel_id,omitempty"`
+	RoomID      string          `json:"room_id,omitempty"`
+	RoomNumber  string          `json:"room_number,omitempty"`
+	IsGuest     bool            `json:"is_guest"`
+	Permissions []string        `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
 }
 
-func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, hotelRepo *repository.HotelRepository, jwtCfg config.JWTConfig) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, hotelRepo *repository.HotelRepository, roleRepo *repository.RoleRepository, jwtCfg config.JWTConfig) *AuthService {
 	return &AuthService{
 		userRepo:  userRepo,
 		roomRepo:  roomRepo,
 		hotelRepo: hotelRepo,
+		roleRepo:  roleRepo,
 		jwtCfg:    jwtCfg,
 	}
 }
@@ -104,12 +108,13 @@ func (s *AuthService) GuestLogin(req dto.GuestLoginRequest) (string, *models.Roo
 }
 
 func (s *AuthService) CreateStaff(hotelID string, req dto.CreateStaffRequest) (*models.User, error) {
-	role := models.UserRole(req.Role)
-	if !models.IsValidRole(role) {
-		return nil, errors.New("invalid role: " + req.Role)
+	// Validate role exists and belongs to this hotel
+	role, err := s.roleRepo.FindByID(req.RoleID)
+	if err != nil {
+		return nil, errors.New("invalid role")
 	}
-	if role == models.RoleSuperAdmin || role == models.RoleHotelAdmin {
-		return nil, errors.New("cannot create super admin or hotel admin through this endpoint")
+	if role.HotelID == nil || *role.HotelID != hotelID {
+		return nil, errors.New("role does not belong to this hotel")
 	}
 
 	exists, err := s.userRepo.ExistsByEmail(req.Email)
@@ -130,7 +135,8 @@ func (s *AuthService) CreateStaff(hotelID string, req dto.CreateStaffRequest) (*
 		PasswordHash: hash,
 		Name:         req.Name,
 		Phone:        req.Phone,
-		Role:         role,
+		Role:         models.UserRole(role.Slug),
+		RoleID:       &req.RoleID,
 		HotelID:      &hotelID,
 		IsActive:     true,
 	}
@@ -148,12 +154,24 @@ func (s *AuthService) generateToken(user *models.User) (string, error) {
 		hotelID = *user.HotelID
 	}
 
+	var permissions []string
+	roleID := ""
+	if user.RoleID != nil {
+		roleID = *user.RoleID
+		codes, err := s.roleRepo.GetPermissionCodes(roleID)
+		if err == nil {
+			permissions = codes
+		}
+	}
+
 	claims := JWTClaims{
-		UserID:  user.ID.String(),
-		Email:   user.Email,
-		Role:    user.Role,
-		HotelID: hotelID,
-		IsGuest: false,
+		UserID:      user.ID.String(),
+		Email:       user.Email,
+		Role:        user.Role,
+		RoleID:      roleID,
+		HotelID:     hotelID,
+		IsGuest:     false,
+		Permissions: permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(s.jwtCfg.ExpiryHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

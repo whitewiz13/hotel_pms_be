@@ -132,3 +132,37 @@ func GetClaims(c *gin.Context) *service.JWTClaims {
 	}
 	return claims
 }
+
+// RequirePermission checks if the authenticated user has at least one of the
+// given permission codes. Super admins bypass all permission checks.
+func RequirePermission(permissions ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		claims := GetClaims(c)
+		if claims == nil {
+			utils.RespondUnauthorized(c, "authentication required")
+			c.Abort()
+			return
+		}
+
+		// Super admin bypasses all permission checks
+		if claims.Role == models.RoleSuperAdmin {
+			c.Next()
+			return
+		}
+
+		permSet := make(map[string]bool, len(claims.Permissions))
+		for _, p := range claims.Permissions {
+			permSet[p] = true
+		}
+
+		for _, required := range permissions {
+			if permSet[required] {
+				c.Next()
+				return
+			}
+		}
+
+		utils.RespondForbidden(c, "insufficient permissions")
+		c.Abort()
+	}
+}

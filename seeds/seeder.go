@@ -57,6 +57,26 @@ func seeders() []seeder {
 				return nil
 			},
 		},
+		{
+			Name: "20260426_002_permissions_and_default_roles",
+			Apply: func(db *gorm.DB) error {
+				// Seed all permissions
+				for _, def := range models.AllPermissionDefs() {
+					perm := models.Permission{
+						Code:        def.Code,
+						Module:      def.Module,
+						Action:      def.Action,
+						Description: def.Description,
+					}
+					if err := db.Create(&perm).Error; err != nil {
+						return fmt.Errorf("failed to seed permission %s: %w", def.Code, err)
+					}
+				}
+				log.Printf("Seeded %d permissions", len(models.AllPermissionDefs()))
+
+				return nil
+			},
+		},
 	}
 }
 

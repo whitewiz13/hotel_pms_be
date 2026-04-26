@@ -254,6 +254,29 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260426_011_roles_permissions",
+			Apply: func(db *gorm.DB) error {
+				// Create permissions table
+				if err := db.AutoMigrate(&models.Permission{}); err != nil {
+					return err
+				}
+
+				// Create roles table (also creates role_permissions junction table via many2many)
+				if err := db.AutoMigrate(&models.Role{}); err != nil {
+					return err
+				}
+
+				// Add role_id column to users
+				db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id UUID`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_role_id ON users(role_id)`)
+
+				// Unique: one role name per hotel
+				db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_hotel_name ON roles(hotel_id, LOWER(name)) WHERE deleted_at IS NULL`)
+
+				return nil
+			},
+		},
 	}
 }
 

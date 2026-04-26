@@ -58,9 +58,12 @@ func main() {
 	billRepo := repository.NewBillRepository(db)
 	guestRepo := repository.NewGuestRepository(db)
 	guestSettingsRepo := repository.NewGuestSettingsRepository(db)
+	permissionRepo := repository.NewPermissionRepository(db)
+	roleRepo := repository.NewRoleRepository(db)
 
 	// Initialize services
-	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, cfg.JWT)
+	roleService := service.NewRoleService(roleRepo, permissionRepo)
+	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, roleRepo, cfg.JWT)
 	hotelService := service.NewHotelService(db, hotelRepo, userRepo)
 	roomService := service.NewRoomService(roomRepo, amenityRepo)
 	roomTypeService := service.NewRoomTypeService(roomTypeRepo)
@@ -93,6 +96,7 @@ func main() {
 		Bill:         handler.NewBillHandler(billService),
 		Guest:        handler.NewGuestHandler(guestService),
 		GuestSettings: handler.NewGuestSettingsHandler(guestSettingsService),
+		Role:          handler.NewRoleHandler(roleService),
 	}
 
 	// Setup router
