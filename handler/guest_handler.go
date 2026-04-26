@@ -156,3 +156,18 @@ func (h *GuestHandler) ListMyActivityBookings(c *gin.Context) {
 
 	utils.RespondPaginated(c, bookings, page, perPage, total)
 }
+
+func (h *GuestHandler) GetDashboard(c *gin.Context) {
+	hotelID, roomID, ok := getGuestContext(c)
+	if !ok {
+		return
+	}
+
+	dashboard, err := h.guestService.GetDashboard(hotelID, roomID)
+	if err != nil {
+		utils.RespondBadRequest(c, err.Error())
+		return
+	}
+
+	utils.RespondOK(c, dashboard)
+}

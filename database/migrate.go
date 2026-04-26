@@ -190,6 +190,12 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260426_008_guest_settings",
+			Apply: func(db *gorm.DB) error {
+				return db.AutoMigrate(&models.GuestSettings{})
+			},
+		},
 	}
 }
 

@@ -133,3 +133,25 @@ func (r *ActivityRepository) FindBookingsByReservationID(reservationID string) (
 func (r *ActivityRepository) UpdateBooking(booking *models.ActivityBooking) error {
 	return r.db.Save(booking).Error
 }
+
+// CountBookingsByReservationGroupedByStatus returns activity booking counts per status for a reservation.
+func (r *ActivityRepository) CountBookingsByReservationGroupedByStatus(reservationID string) (map[string]int64, error) {
+	type result struct {
+		Status string
+		Count  int64
+	}
+	var results []result
+	if err := r.db.Model(&models.ActivityBooking{}).
+		Select("status, count(*) as count").
+		Where("reservation_id = ?", reservationID).
+		Group("status").
+		Scan(&results).Error; err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int64)
+	for _, r := range results {
+		counts[r.Status] = r.Count
+	}
+	return counts, nil
+}

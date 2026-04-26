@@ -25,6 +25,7 @@ type Handlers struct {
 	Activity     *handler.ActivityHandler
 	Bill         *handler.BillHandler
 	Guest        *handler.GuestHandler
+	GuestSettings *handler.GuestSettingsHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -145,6 +146,10 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				// Dashboard
 				hotel.GET("/dashboard/stats", middleware.RequireHotelFrontDeskOrAbove(), handlers.Dashboard.GetStats)
 				hotel.GET("/activity", middleware.RequireHotelFrontDeskOrAbove(), handlers.Dashboard.GetActivity)
+
+				// Guest Settings (admin)
+				hotel.POST("/guest-settings", middleware.RequireHotelAdminOrAbove(), handlers.GuestSettings.Save)
+				hotel.GET("/guest-settings", middleware.RequireHotelAdminOrAbove(), handlers.GuestSettings.Get)
 			}
 
 			// Guest self-service (authenticated guests only)
@@ -158,6 +163,8 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				guest.GET("/orders", handlers.Guest.ListMyOrders)
 				guest.POST("/activity-bookings", handlers.Guest.BookActivity)
 				guest.GET("/activity-bookings", handlers.Guest.ListMyActivityBookings)
+				guest.GET("/dashboard", handlers.Guest.GetDashboard)
+				guest.GET("/settings", handlers.GuestSettings.GetForGuest)
 			}
 		}
 	}

@@ -80,3 +80,25 @@ func (r *OrderRepository) FindByReservationID(reservationID string) ([]models.Or
 func (r *OrderRepository) Update(order *models.Order) error {
 	return r.db.Save(order).Error
 }
+
+// CountByReservationGroupedByStatus returns order counts per status for a reservation.
+func (r *OrderRepository) CountByReservationGroupedByStatus(reservationID string) (map[string]int64, error) {
+	type result struct {
+		Status string
+		Count  int64
+	}
+	var results []result
+	if err := r.db.Model(&models.Order{}).
+		Select("status, count(*) as count").
+		Where("reservation_id = ?", reservationID).
+		Group("status").
+		Scan(&results).Error; err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int64)
+	for _, r := range results {
+		counts[r.Status] = r.Count
+	}
+	return counts, nil
+}

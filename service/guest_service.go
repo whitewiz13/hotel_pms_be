@@ -9,12 +9,13 @@ import (
 )
 
 type GuestService struct {
-	reservationRepo *repository.ReservationRepository
-	orderService    *OrderService
-	activityService *ActivityService
-	menuService     *MenuService
-	orderRepo       *repository.OrderRepository
-	activityRepo    *repository.ActivityRepository
+	reservationRepo  *repository.ReservationRepository
+	orderService     *OrderService
+	activityService  *ActivityService
+	menuService      *MenuService
+	orderRepo        *repository.OrderRepository
+	activityRepo     *repository.ActivityRepository
+	settingsRepo     *repository.GuestSettingsRepository
 }
 
 func NewGuestService(
@@ -24,14 +25,16 @@ func NewGuestService(
 	menuService *MenuService,
 	orderRepo *repository.OrderRepository,
 	activityRepo *repository.ActivityRepository,
+	settingsRepo *repository.GuestSettingsRepository,
 ) *GuestService {
 	return &GuestService{
-		reservationRepo: reservationRepo,
-		orderService:    orderService,
-		activityService: activityService,
-		menuService:     menuService,
-		orderRepo:       orderRepo,
-		activityRepo:    activityRepo,
+		reservationRepo:  reservationRepo,
+		orderService:     orderService,
+		activityService:  activityService,
+		menuService:      menuService,
+		orderRepo:        orderRepo,
+		activityRepo:     activityRepo,
+		settingsRepo:     settingsRepo,
 	}
 }
 
@@ -65,6 +68,12 @@ func (s *GuestService) ListActivities(hotelID string, page, perPage int) ([]mode
 }
 
 func (s *GuestService) PlaceOrder(hotelID, roomID string, req dto.GuestPlaceOrderRequest) (*models.Order, error) {
+	// Check if orders are allowed
+	settings, _ := s.settingsRepo.FindByHotelID(hotelID)
+	if settings != nil && !settings.AllowOrders {
+		return nil, errors.New("ordering is currently disabled by the hotel")
+	}
+
 	reservation, err := s.getActiveReservation(roomID, hotelID)
 	if err != nil {
 		return nil, err
@@ -83,6 +92,12 @@ func (s *GuestService) PlaceOrder(hotelID, roomID string, req dto.GuestPlaceOrde
 }
 
 func (s *GuestService) BookActivity(hotelID, roomID string, req dto.GuestBookActivityRequest) (*models.ActivityBooking, error) {
+	// Check if activities are allowed
+	settings, _ := s.settingsRepo.FindByHotelID(hotelID)
+	if settings != nil && !settings.AllowActivities {
+		return nil, errors.New("activity booking is currently disabled by the hotel")
+	}
+
 	reservation, err := s.getActiveReservation(roomID, hotelID)
 	if err != nil {
 		return nil, err
@@ -129,4 +144,64 @@ func (s *GuestService) ListMyActivityBookings(hotelID, roomID string, page, perP
 	}
 
 	return s.activityService.ListBookings(hotelID, query)
+}
+
+func (s *GuestService) GetDashboard(hotelID, roomID string) (*dto.GuestDashboardResponse, error) {
+	reservation, err := s.getActiveReservation(roomID, hotelID)
+	if err != nil {
+		return nil, err
+	}
+
+	resID := reservation.ID.String()
+
+	// Order stats
+	orderStats, err := s.orderRepo.CountByReservationGroupedByStatus(resID)
+	if err != nil {
+		orderStats = make(map[string]int64)
+	}
+	var totalOrders int64
+	for _, c := range orderStats {
+		totalOrders += c
+	}
+
+	// Order spend (non-cancelled orders)
+	var orderSpend float64
+	orders, err := s.orderRepo.FindByReservationID(resID)
+	if err == nil {
+		for _, o := range orders {
+			orderSpend += o.TotalAmount
+		}
+	}
+
+	// Activity stats
+	activityStats, err := s.activityRepo.CountBookingsByReservationGroupedByStatus(resID)
+	if err != nil {
+		activityStats = make(map[string]int64)
+	}
+	var totalActivities int64
+	for _, c := range activityStats {
+		totalActivities += c
+	}
+
+	// Activity spend (non-cancelled bookings)
+	var activitySpend float64
+	bookings, err := s.activityRepo.FindBookingsByReservationID(resID)
+	if err == nil {
+		for _, b := range bookings {
+			activitySpend += b.Amount
+		}
+	}
+
+	return &dto.GuestDashboardResponse{
+		RoomNumber:      reservation.Room.RoomNumber,
+		GuestName:       reservation.GuestName,
+		CheckInDate:     reservation.CheckInDate.Format("2006-01-02"),
+		CheckOutDate:    reservation.CheckOutDate.Format("2006-01-02"),
+		OrderStats:      orderStats,
+		TotalOrders:     totalOrders,
+		OrderSpend:      orderSpend,
+		ActivityStats:   activityStats,
+		TotalActivities: totalActivities,
+		ActivitySpend:   activitySpend,
+	}, nil
 }
