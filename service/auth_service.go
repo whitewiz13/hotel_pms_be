@@ -13,9 +13,10 @@ import (
 )
 
 type AuthService struct {
-	userRepo *repository.UserRepository
-	roomRepo *repository.RoomRepository
-	jwtCfg   config.JWTConfig
+	userRepo  *repository.UserRepository
+	roomRepo  *repository.RoomRepository
+	hotelRepo *repository.HotelRepository
+	jwtCfg    config.JWTConfig
 }
 
 type JWTClaims struct {
@@ -29,11 +30,12 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, jwtCfg config.JWTConfig) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, hotelRepo *repository.HotelRepository, jwtCfg config.JWTConfig) *AuthService {
 	return &AuthService{
-		userRepo: userRepo,
-		roomRepo: roomRepo,
-		jwtCfg:   jwtCfg,
+		userRepo:  userRepo,
+		roomRepo:  roomRepo,
+		hotelRepo: hotelRepo,
+		jwtCfg:    jwtCfg,
 	}
 }
 
@@ -51,6 +53,17 @@ func (s *AuthService) Login(req dto.LoginRequest) (string, *models.User, error) 
 		return "", nil, errors.New("invalid email or password")
 	}
 
+	// Block login if hotel is disabled (skip for super_admin — no hotel)
+	if user.HotelID != nil && user.Role != models.RoleSuperAdmin {
+		hotel, err := s.hotelRepo.FindByID(*user.HotelID)
+		if err != nil {
+			return "", nil, errors.New("hotel not found")
+		}
+		if !hotel.IsActive {
+			return "", nil, errors.New("hotel is currently disabled, please contact support")
+		}
+	}
+
 	token, err := s.generateToken(user)
 	if err != nil {
 		return "", nil, errors.New("failed to generate token")
@@ -60,6 +73,15 @@ func (s *AuthService) Login(req dto.LoginRequest) (string, *models.User, error) 
 }
 
 func (s *AuthService) GuestLogin(req dto.GuestLoginRequest) (string, *models.Room, error) {
+	// Block guest login if hotel is disabled
+	hotel, err := s.hotelRepo.FindByID(req.HotelID)
+	if err != nil {
+		return "", nil, errors.New("hotel not found")
+	}
+	if !hotel.IsActive {
+		return "", nil, errors.New("hotel is currently disabled, please contact support")
+	}
+
 	room, err := s.roomRepo.FindByRoomNumberAndHotel(req.RoomNumber, req.HotelID)
 	if err != nil {
 		return "", nil, errors.New("invalid room number or pin")

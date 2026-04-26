@@ -1,7 +1,11 @@
 package service
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
@@ -34,8 +38,14 @@ func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, *model
 		return nil, nil, errors.New("failed to hash password")
 	}
 
+	slug, err := s.generateUniqueSlug(req.Name)
+	if err != nil {
+		return nil, nil, errors.New("failed to generate hotel slug")
+	}
+
 	hotel := &models.Hotel{
 		Name:        req.Name,
+		Slug:        slug,
 		Address:     req.Address,
 		City:        req.City,
 		State:       req.State,
@@ -134,4 +144,52 @@ func (s *HotelService) Delete(id string) error {
 		return errors.New("hotel not found")
 	}
 	return s.hotelRepo.Delete(id)
+}
+
+func (s *HotelService) GetBySlug(slug string) (*models.Hotel, error) {
+	hotel, err := s.hotelRepo.FindBySlug(slug)
+	if err != nil {
+		return nil, errors.New("hotel not found")
+	}
+	return hotel, nil
+}
+
+// generateUniqueSlug creates a URL-friendly slug from the hotel name
+// with a 4-character random suffix, e.g. "the-london-tipton-a3f9".
+func (s *HotelService) generateUniqueSlug(name string) (string, error) {
+	base := slugify(name)
+
+	const maxAttempts = 5
+	for range maxAttempts {
+		slug := fmt.Sprintf("%s-%s", base, randomSuffix(4))
+		exists, err := s.hotelRepo.ExistsBySlug(slug)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return slug, nil
+		}
+	}
+	return "", errors.New("could not generate unique slug")
+}
+
+var nonAlphaNum = regexp.MustCompile(`[^a-z0-9-]+`)
+var multiDash = regexp.MustCompile(`-{2,}`)
+
+func slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = nonAlphaNum.ReplaceAllString(s, "-")
+	s = multiDash.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	return s
+}
+
+func randomSuffix(n int) string {
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, n)
+	rand.Read(b)
+	for i := range b {
+		b[i] = chars[b[i]%byte(len(chars))]
+	}
+	return string(b)
 }

@@ -52,6 +52,9 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 			auth.POST("/guest/login", handlers.Auth.GuestLogin)
 		}
 
+		// Public hotel lookup by slug (for guest portal URL)
+		api.GET("/hotels/slug/:slug", handlers.Hotel.GetBySlug)
+
 		// Protected routes
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(authService))

@@ -59,7 +59,7 @@ func main() {
 	guestSettingsRepo := repository.NewGuestSettingsRepository(db)
 
 	// Initialize services
-	authService := service.NewAuthService(userRepo, roomRepo, cfg.JWT)
+	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, cfg.JWT)
 	hotelService := service.NewHotelService(db, hotelRepo, userRepo)
 	roomService := service.NewRoomService(roomRepo, amenityRepo)
 	amenityService := service.NewAmenityService(amenityRepo)

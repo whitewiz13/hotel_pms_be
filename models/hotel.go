@@ -3,6 +3,7 @@ package models
 type Hotel struct {
 	BaseModel
 	Name        string `gorm:"not null;size:255" json:"name"`
+	Slug        string `gorm:"uniqueIndex;not null;size:100" json:"slug"`
 	Address     string `gorm:"not null;size:500" json:"address"`
 	City        string `gorm:"not null;size:100" json:"city"`
 	State       string `gorm:"size:100" json:"state"`

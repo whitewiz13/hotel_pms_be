@@ -96,3 +96,19 @@ func (h *HotelHandler) Delete(c *gin.Context) {
 
 	utils.RespondMessage(c, "hotel deleted successfully")
 }
+
+func (h *HotelHandler) GetBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+
+	hotel, err := h.hotelService.GetBySlug(slug)
+	if err != nil {
+		utils.RespondNotFound(c, err.Error())
+		return
+	}
+
+	utils.RespondOK(c, gin.H{
+		"id":   hotel.ID,
+		"name": hotel.Name,
+		"slug": hotel.Slug,
+	})
+}

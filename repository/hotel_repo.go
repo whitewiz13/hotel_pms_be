@@ -43,3 +43,18 @@ func (r *HotelRepository) Update(hotel *models.Hotel) error {
 func (r *HotelRepository) Delete(id string) error {
 	return r.db.Where("id = ?", id).Delete(&models.Hotel{}).Error
 }
+
+func (r *HotelRepository) FindBySlug(slug string) (*models.Hotel, error) {
+	var hotel models.Hotel
+	err := r.db.Where("slug = ?", slug).First(&hotel).Error
+	if err != nil {
+		return nil, err
+	}
+	return &hotel, nil
+}
+
+func (r *HotelRepository) ExistsBySlug(slug string) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Hotel{}).Where("slug = ?", slug).Count(&count).Error
+	return count > 0, err
+}

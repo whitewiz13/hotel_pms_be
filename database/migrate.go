@@ -1,9 +1,12 @@
 package database
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/hotelpms/backend/models"
@@ -196,6 +199,29 @@ func migrations() []migration {
 				return db.AutoMigrate(&models.GuestSettings{})
 			},
 		},
+		{
+			Version: "20260426_009_hotel_slug",
+			Apply: func(db *gorm.DB) error {
+				// Add slug column
+				db.Exec(`ALTER TABLE hotels ADD COLUMN IF NOT EXISTS slug VARCHAR(100)`)
+
+				// Backfill existing hotels with a slug derived from name
+				var hotels []models.Hotel
+				db.Find(&hotels)
+				for _, h := range hotels {
+					if h.Slug == "" {
+						slug := generateSlugForMigration(h.Name)
+						db.Exec(`UPDATE hotels SET slug = ? WHERE id = ?`, slug, h.ID)
+					}
+				}
+
+				// Now make it NOT NULL and unique
+				db.Exec(`ALTER TABLE hotels ALTER COLUMN slug SET NOT NULL`)
+				db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_hotels_slug ON hotels(slug) WHERE deleted_at IS NULL`)
+
+				return nil
+			},
+		},
 	}
 }
 
@@ -247,4 +273,21 @@ func RunMigrations(db *gorm.DB) error {
 		log.Printf("Applied %d migration(s) successfully", ran)
 	}
 	return nil
+}
+
+// generateSlugForMigration creates a slug from a hotel name for the backfill migration.
+func generateSlugForMigration(name string) string {
+	s := strings.ToLower(strings.TrimSpace(name))
+	re := regexp.MustCompile(`[^a-z0-9-]+`)
+	s = re.ReplaceAllString(s, "-")
+	s = regexp.MustCompile(`-{2,}`).ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, 4)
+	rand.Read(b)
+	for i := range b {
+		b[i] = chars[b[i]%byte(len(chars))]
+	}
+	return fmt.Sprintf("%s-%s", s, string(b))
 }
