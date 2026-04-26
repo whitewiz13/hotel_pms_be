@@ -43,6 +43,7 @@ type ActivityBooking struct {
 	RoomID        string                `gorm:"type:uuid;not null;index" json:"room_id"`
 	ReservationID string                `gorm:"type:uuid;not null;index" json:"reservation_id"`
 	ActivityID    string                `gorm:"type:uuid;not null;index" json:"activity_id"`
+	GuestID       string                `gorm:"type:uuid;not null;index" json:"guest_id"`
 	GuestName     string                `gorm:"not null;size:255" json:"guest_name"`
 	ScheduledAt   *time.Time            `gorm:"type:timestamptz" json:"scheduled_at,omitempty"`
 	Status        ActivityBookingStatus `gorm:"type:varchar(20);not null;default:'pending'" json:"status"`
@@ -53,6 +54,7 @@ type ActivityBooking struct {
 	Room        Room        `gorm:"foreignKey:RoomID" json:"room,omitempty"`
 	Reservation Reservation `gorm:"foreignKey:ReservationID" json:"-"`
 	Activity    Activity    `gorm:"foreignKey:ActivityID" json:"activity,omitempty"`
+	Guest       Guest       `gorm:"foreignKey:GuestID" json:"guest,omitempty"`
 }
 
 func (ActivityBooking) TableName() string {

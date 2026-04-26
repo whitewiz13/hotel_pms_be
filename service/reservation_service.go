@@ -18,14 +18,16 @@ type ReservationService struct {
 	reservationRepo *repository.ReservationRepository
 	roomRepo        *repository.RoomRepository
 	billRepo        *repository.BillRepository
+	guestRepo       *repository.GuestRepository
 }
 
-func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository, billRepo *repository.BillRepository) *ReservationService {
+func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository, billRepo *repository.BillRepository, guestRepo *repository.GuestRepository) *ReservationService {
 	return &ReservationService{
 		db:              db,
 		reservationRepo: reservationRepo,
 		roomRepo:        roomRepo,
 		billRepo:        billRepo,
+		guestRepo:       guestRepo,
 	}
 }
 
@@ -90,6 +92,13 @@ func (s *ReservationService) Create(hotelID string, req dto.CreateReservationReq
 
 	// Use transaction with row-level locking to prevent double booking
 	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// Find or create guest record
+		guest, err := s.guestRepo.FindOrCreate(tx, hotelID, req.GuestName, req.GuestPhone, req.GuestEmail)
+		if err != nil {
+			return errors.New("failed to create guest record")
+		}
+		reservation.GuestID = guest.ID.String()
+
 		// Lock and check for conflicting inventory
 		conflictCount, err := s.reservationRepo.LockInventoryForUpdate(tx, req.RoomID, hotelID, checkIn, checkOut)
 		if err != nil {
@@ -185,8 +194,10 @@ func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, s
 		return nil, "", errors.New("only reserved bookings can be checked in")
 	}
 
-	today := time.Now().Truncate(24 * time.Hour)
-	if reservation.CheckInDate.After(today) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	checkInDay := time.Date(reservation.CheckInDate.Year(), reservation.CheckInDate.Month(), reservation.CheckInDate.Day(), 0, 0, 0, 0, time.UTC)
+	if checkInDay.After(today) {
 		return nil, "", errors.New("cannot check in before the check-in date")
 	}
 
@@ -305,8 +316,10 @@ func (s *ReservationService) Cancel(id, hotelID string) (*models.Reservation, er
 }
 
 func validateDateRange(checkIn, checkOut time.Time) error {
-	today := time.Now().Truncate(24 * time.Hour)
-	if checkIn.Before(today) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	checkInDay := time.Date(checkIn.Year(), checkIn.Month(), checkIn.Day(), 0, 0, 0, 0, time.UTC)
+	if checkInDay.Before(today) {
 		return errors.New("check-in date cannot be in the past")
 	}
 	if !checkOut.After(checkIn) {

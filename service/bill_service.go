@@ -135,6 +135,7 @@ func (s *BillService) Generate(hotelID, reservationID string, req dto.GenerateBi
 		HotelID:          hotelID,
 		ReservationID:    reservationID,
 		RoomID:           reservation.RoomID,
+		GuestID:          reservation.GuestID,
 		GuestName:        reservation.GuestName,
 		RoomCharges:      roomCharges,
 		UpfrontPaid:      upfrontPaid,

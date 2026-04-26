@@ -19,7 +19,7 @@ func (r *OrderRepository) Create(order *models.Order) error {
 
 func (r *OrderRepository) FindByID(id string) (*models.Order, error) {
 	var order models.Order
-	if err := r.db.Preload("Items.MenuItem").Preload("Room").Preload("AssignedTo").
+	if err := r.db.Preload("Items.MenuItem").Preload("Room").Preload("Guest").Preload("AssignedTo").
 		Where("id = ?", id).First(&order).Error; err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func (r *OrderRepository) FindByID(id string) (*models.Order, error) {
 
 func (r *OrderRepository) FindByIDAndHotel(id, hotelID string) (*models.Order, error) {
 	var order models.Order
-	if err := r.db.Preload("Items.MenuItem").Preload("Room").Preload("AssignedTo").
+	if err := r.db.Preload("Items.MenuItem").Preload("Room").Preload("Guest").Preload("AssignedTo").
 		Where("id = ? AND hotel_id = ?", id, hotelID).First(&order).Error; err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (r *OrderRepository) FindByHotelID(hotelID, status, roomID, reservationID, 
 	}
 
 	offset := (page - 1) * perPage
-	if err := query.Preload("Items.MenuItem").Preload("Room").Preload("AssignedTo").
+	if err := query.Preload("Items.MenuItem").Preload("Room").Preload("Guest").Preload("AssignedTo").
 		Order("created_at DESC").Offset(offset).Limit(perPage).Find(&orders).Error; err != nil {
 		return nil, 0, err
 	}

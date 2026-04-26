@@ -55,6 +55,7 @@ func main() {
 	orderRepo := repository.NewOrderRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
 	billRepo := repository.NewBillRepository(db)
+	guestRepo := repository.NewGuestRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo, roomRepo, cfg.JWT)
@@ -62,13 +63,14 @@ func main() {
 	roomService := service.NewRoomService(roomRepo, amenityRepo)
 	amenityService := service.NewAmenityService(amenityRepo)
 	userService := service.NewUserService(userRepo)
-	reservationService := service.NewReservationService(db, reservationRepo, roomRepo, billRepo)
+	reservationService := service.NewReservationService(db, reservationRepo, roomRepo, billRepo, guestRepo)
 	housekeepingService := service.NewHousekeepingService(db, housekeepingRepo, roomRepo, userRepo)
 	dashboardService := service.NewDashboardService(dashboardRepo)
 	menuService := service.NewMenuService(menuRepo)
 	orderService := service.NewOrderService(db, orderRepo, menuRepo, roomRepo, reservationRepo, userRepo)
 	activityService := service.NewActivityService(activityRepo, roomRepo, reservationRepo)
 	billService := service.NewBillService(db, billRepo, reservationRepo, orderRepo, activityRepo, roomRepo)
+	guestService := service.NewGuestService(reservationRepo, orderService, activityService, menuService, orderRepo, activityRepo)
 
 	// Initialize handlers
 	handlers := &router.Handlers{
@@ -84,6 +86,7 @@ func main() {
 		Order:        handler.NewOrderHandler(orderService),
 		Activity:     handler.NewActivityHandler(activityService),
 		Bill:         handler.NewBillHandler(billService),
+		Guest:        handler.NewGuestHandler(guestService),
 	}
 
 	// Setup router

@@ -21,6 +21,7 @@ type Bill struct {
 	HotelID          string     `gorm:"type:uuid;not null;index" json:"hotel_id"`
 	ReservationID    string     `gorm:"type:uuid;not null;uniqueIndex" json:"reservation_id"`
 	RoomID           string     `gorm:"type:uuid;not null" json:"room_id"`
+	GuestID          string     `gorm:"type:uuid;not null;index" json:"guest_id"`
 	GuestName        string     `gorm:"not null;size:255" json:"guest_name"`
 	RoomCharges      float64    `gorm:"not null;default:0" json:"room_charges"`
 	UpfrontPaid      float64    `gorm:"not null;default:0" json:"upfront_paid"`
@@ -36,6 +37,7 @@ type Bill struct {
 	Hotel       Hotel          `gorm:"foreignKey:HotelID" json:"-"`
 	Reservation Reservation    `gorm:"foreignKey:ReservationID" json:"reservation,omitempty"`
 	Room        Room           `gorm:"foreignKey:RoomID" json:"room,omitempty"`
+	Guest       Guest          `gorm:"foreignKey:GuestID" json:"guest,omitempty"`
 	LineItems   []BillLineItem `gorm:"foreignKey:BillID" json:"line_items,omitempty"`
 }
 

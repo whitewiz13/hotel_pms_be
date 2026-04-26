@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hotelpms/backend/handler"
 	"github.com/hotelpms/backend/middleware"
+	"github.com/hotelpms/backend/models"
 	"github.com/hotelpms/backend/service"
 )
 
@@ -23,6 +24,7 @@ type Handlers struct {
 	Order        *handler.OrderHandler
 	Activity     *handler.ActivityHandler
 	Bill         *handler.BillHandler
+	Guest        *handler.GuestHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
@@ -143,6 +145,19 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				// Dashboard
 				hotel.GET("/dashboard/stats", middleware.RequireHotelFrontDeskOrAbove(), handlers.Dashboard.GetStats)
 				hotel.GET("/activity", middleware.RequireHotelFrontDeskOrAbove(), handlers.Dashboard.GetActivity)
+			}
+
+			// Guest self-service (authenticated guests only)
+			guest := protected.Group("/guest")
+			guest.Use(middleware.RequireRole(models.RoleGuest))
+			{
+				guest.GET("/reservation", handlers.Guest.GetMyReservation)
+				guest.GET("/menu", handlers.Guest.ListMenu)
+				guest.GET("/activities", handlers.Guest.ListActivities)
+				guest.POST("/orders", handlers.Guest.PlaceOrder)
+				guest.GET("/orders", handlers.Guest.ListMyOrders)
+				guest.POST("/activity-bookings", handlers.Guest.BookActivity)
+				guest.GET("/activity-bookings", handlers.Guest.ListMyActivityBookings)
 			}
 		}
 	}

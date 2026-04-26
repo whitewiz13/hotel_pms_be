@@ -140,6 +140,7 @@ func (s *ActivityService) CreateBooking(hotelID string, req dto.CreateActivityBo
 		RoomID:        req.RoomID,
 		ReservationID: req.ReservationID,
 		ActivityID:    req.ActivityID,
+		GuestID:       reservation.GuestID,
 		GuestName:     req.GuestName,
 		Status:        models.ActivityBookingPending,
 		Amount:        activity.Price,

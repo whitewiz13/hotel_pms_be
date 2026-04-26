@@ -4,6 +4,7 @@ type CreateReservationRequest struct {
 	RoomID       string `json:"room_id" binding:"required,uuid"`
 	GuestName    string `json:"guest_name" binding:"required,min=2"`
 	GuestPhone   string `json:"guest_phone" binding:"required"`
+	GuestEmail   string `json:"guest_email"`
 	CheckInDate  string `json:"check_in_date" binding:"required"`  // YYYY-MM-DD
 	CheckOutDate string `json:"check_out_date" binding:"required"` // YYYY-MM-DD
 	Notes        string `json:"notes"`

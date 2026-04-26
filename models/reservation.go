@@ -19,6 +19,7 @@ type Reservation struct {
 	BaseModel
 	HotelID      string            `gorm:"type:uuid;not null;index" json:"hotel_id"`
 	RoomID       string            `gorm:"type:uuid;not null;index" json:"room_id"`
+	GuestID      string            `gorm:"type:uuid;not null;index" json:"guest_id"`
 	GuestName    string            `gorm:"not null;size:255" json:"guest_name"`
 	GuestPhone   string            `gorm:"size:20" json:"guest_phone"`
 	CheckInDate  time.Time         `gorm:"type:date;not null;index" json:"check_in_date"`
@@ -28,6 +29,7 @@ type Reservation struct {
 
 	Hotel Hotel `gorm:"foreignKey:HotelID" json:"-"`
 	Room  Room  `gorm:"foreignKey:RoomID" json:"room,omitempty"`
+	Guest Guest `gorm:"foreignKey:GuestID" json:"guest,omitempty"`
 }
 
 func (Reservation) TableName() string {

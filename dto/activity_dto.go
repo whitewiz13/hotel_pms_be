@@ -28,6 +28,7 @@ type CreateActivityBookingRequest struct {
 	ReservationID string `json:"reservation_id" binding:"required,uuid"`
 	ActivityID    string `json:"activity_id" binding:"required,uuid"`
 	GuestName     string `json:"guest_name" binding:"required,min=2"`
+	GuestID       string `json:"guest_id"`
 	ScheduledAt   string `json:"scheduled_at"`
 	Notes         string `json:"notes"`
 }

@@ -72,7 +72,7 @@ func (r *ActivityRepository) CreateBooking(booking *models.ActivityBooking) erro
 
 func (r *ActivityRepository) FindBookingByID(id string) (*models.ActivityBooking, error) {
 	var booking models.ActivityBooking
-	if err := r.db.Preload("Activity").Preload("Room").
+	if err := r.db.Preload("Activity").Preload("Room").Preload("Guest").
 		Where("id = ?", id).First(&booking).Error; err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (r *ActivityRepository) FindBookingByID(id string) (*models.ActivityBooking
 
 func (r *ActivityRepository) FindBookingByIDAndHotel(id, hotelID string) (*models.ActivityBooking, error) {
 	var booking models.ActivityBooking
-	if err := r.db.Preload("Activity").Preload("Room").
+	if err := r.db.Preload("Activity").Preload("Room").Preload("Guest").
 		Where("id = ? AND hotel_id = ?", id, hotelID).First(&booking).Error; err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (r *ActivityRepository) FindBookingsByHotelID(hotelID, status, roomID, rese
 	}
 
 	offset := (page - 1) * perPage
-	if err := query.Preload("Activity").Preload("Room").
+	if err := query.Preload("Activity").Preload("Room").Preload("Guest").
 		Order("created_at DESC").Offset(offset).Limit(perPage).Find(&bookings).Error; err != nil {
 		return nil, 0, err
 	}

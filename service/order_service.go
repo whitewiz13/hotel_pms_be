@@ -84,6 +84,7 @@ func (s *OrderService) Create(hotelID string, req dto.CreateOrderRequest) (*mode
 		HotelID:       hotelID,
 		RoomID:        req.RoomID,
 		ReservationID: req.ReservationID,
+		GuestID:       reservation.GuestID,
 		GuestName:     req.GuestName,
 		Status:        models.OrderStatusPending,
 		TotalAmount:   totalAmount,

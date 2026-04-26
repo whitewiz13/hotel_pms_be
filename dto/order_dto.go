@@ -10,6 +10,7 @@ type CreateOrderRequest struct {
 	RoomID        string             `json:"room_id" binding:"required,uuid"`
 	ReservationID string             `json:"reservation_id" binding:"required,uuid"`
 	GuestName     string             `json:"guest_name" binding:"required,min=2"`
+	GuestID       string             `json:"guest_id"`
 	Items         []OrderItemRequest `json:"items" binding:"required,min=1,dive"`
 	Notes         string             `json:"notes"`
 }

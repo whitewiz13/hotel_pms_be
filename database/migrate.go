@@ -131,6 +131,65 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260426_007_guests",
+			Apply: func(db *gorm.DB) error {
+				// Create guests table
+				if err := db.AutoMigrate(&models.Guest{}); err != nil {
+					return err
+				}
+
+				// Add guest_id columns as nullable first
+				for _, table := range []string{"reservations", "orders", "activity_bookings", "bills"} {
+					db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN IF NOT EXISTS guest_id UUID`, table))
+				}
+
+				// Backfill: create guest records from existing reservations
+				db.Exec(`
+					INSERT INTO guests (id, hotel_id, name, phone, created_at, updated_at)
+					SELECT gen_random_uuid(), hotel_id, guest_name, guest_phone, NOW(), NOW()
+					FROM reservations
+					WHERE guest_name IS NOT NULL AND guest_name != ''
+					ON CONFLICT DO NOTHING
+				`)
+
+				// Link reservations to guests by matching hotel_id + phone
+				db.Exec(`
+					UPDATE reservations r
+					SET guest_id = g.id
+					FROM guests g
+					WHERE r.hotel_id = g.hotel_id AND r.guest_phone = g.phone AND r.guest_id IS NULL
+				`)
+
+				// Link orders/activity_bookings/bills via reservation
+				db.Exec(`
+					UPDATE orders o SET guest_id = r.guest_id
+					FROM reservations r WHERE o.reservation_id = r.id AND o.guest_id IS NULL
+				`)
+				db.Exec(`
+					UPDATE activity_bookings ab SET guest_id = r.guest_id
+					FROM reservations r WHERE ab.reservation_id = r.id AND ab.guest_id IS NULL
+				`)
+				db.Exec(`
+					UPDATE bills b SET guest_id = r.guest_id
+					FROM reservations r WHERE b.reservation_id = r.id AND b.guest_id IS NULL
+				`)
+
+				// Now make guest_id NOT NULL (safe after backfill)
+				for _, table := range []string{"reservations", "orders", "activity_bookings", "bills"} {
+					db.Exec(fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN guest_id SET NOT NULL`, table))
+				}
+
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_guests_hotel ON guests(hotel_id)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_guests_hotel_phone ON guests(hotel_id, phone) WHERE deleted_at IS NULL`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_reservations_guest ON reservations(guest_id)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_orders_guest ON orders(guest_id)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_activity_bookings_guest ON activity_bookings(guest_id)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_bills_guest ON bills(guest_id)`)
+
+				return nil
+			},
+		},
 	}
 }
 

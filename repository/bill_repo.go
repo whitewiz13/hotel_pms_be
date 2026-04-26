@@ -23,7 +23,7 @@ func (r *BillRepository) CreateLineItems(items []models.BillLineItem) error {
 
 func (r *BillRepository) FindByID(id string) (*models.Bill, error) {
 	var bill models.Bill
-	if err := r.db.Preload("LineItems").Preload("Room").Preload("Reservation").
+	if err := r.db.Preload("LineItems").Preload("Room").Preload("Reservation").Preload("Guest").
 		Where("id = ?", id).First(&bill).Error; err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (r *BillRepository) FindByID(id string) (*models.Bill, error) {
 
 func (r *BillRepository) FindByIDAndHotel(id, hotelID string) (*models.Bill, error) {
 	var bill models.Bill
-	if err := r.db.Preload("LineItems").Preload("Room").Preload("Reservation").
+	if err := r.db.Preload("LineItems").Preload("Room").Preload("Reservation").Preload("Guest").
 		Where("id = ? AND hotel_id = ?", id, hotelID).First(&bill).Error; err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (r *BillRepository) FindByIDAndHotel(id, hotelID string) (*models.Bill, err
 
 func (r *BillRepository) FindByReservationID(reservationID string) (*models.Bill, error) {
 	var bill models.Bill
-	if err := r.db.Preload("LineItems").Preload("Room").Preload("Reservation").
+	if err := r.db.Preload("LineItems").Preload("Room").Preload("Reservation").Preload("Guest").
 		Where("reservation_id = ?", reservationID).First(&bill).Error; err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (r *BillRepository) FindByHotelID(hotelID, status, reservationID string, pa
 	}
 
 	offset := (page - 1) * perPage
-	if err := query.Preload("LineItems").Preload("Room").Preload("Reservation").
+	if err := query.Preload("LineItems").Preload("Room").Preload("Reservation").Preload("Guest").
 		Order("created_at DESC").Offset(offset).Limit(perPage).Find(&bills).Error; err != nil {
 		return nil, 0, err
 	}
