@@ -23,3 +23,13 @@ type CreateStaffRequest struct {
 	Phone    string `json:"phone"`
 	RoleID   string `json:"role_id" binding:"required,uuid"`
 }
+
+type MeResponse struct {
+	UserID      string   `json:"user_id"`
+	Email       string   `json:"email"`
+	Name        string   `json:"name"`
+	Role        string   `json:"role"`
+	RoleID      string   `json:"role_id,omitempty"`
+	HotelID     string   `json:"hotel_id,omitempty"`
+	Permissions []string `json:"permissions"`
+}

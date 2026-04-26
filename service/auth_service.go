@@ -148,6 +148,40 @@ func (s *AuthService) CreateStaff(hotelID string, req dto.CreateStaffRequest) (*
 	return user, nil
 }
 
+func (s *AuthService) GetMe(userID string, roleID string) (*dto.MeResponse, error) {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	hotelID := ""
+	if user.HotelID != nil {
+		hotelID = *user.HotelID
+	}
+
+	var permissions []string
+	if roleID != "" {
+		codes, err := s.roleRepo.GetPermissionCodes(roleID)
+		if err == nil {
+			permissions = codes
+		}
+	}
+
+	if permissions == nil {
+		permissions = []string{}
+	}
+
+	return &dto.MeResponse{
+		UserID:      user.ID.String(),
+		Email:       user.Email,
+		Name:        user.Name,
+		Role:        string(user.Role),
+		RoleID:      roleID,
+		HotelID:     hotelID,
+		Permissions: permissions,
+	}, nil
+}
+
 func (s *AuthService) generateToken(user *models.User) (string, error) {
 	hotelID := ""
 	if user.HotelID != nil {

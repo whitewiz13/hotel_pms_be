@@ -67,6 +67,9 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(authService))
 		{
+			// Current user info with live permissions
+			protected.GET("/auth/me", handlers.Auth.Me)
+
 			// Super admin: hotel management
 			hotels := protected.Group("/hotels")
 			{

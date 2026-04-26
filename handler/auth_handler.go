@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hotelpms/backend/dto"
+	"github.com/hotelpms/backend/middleware"
 	"github.com/hotelpms/backend/service"
 	"github.com/hotelpms/backend/utils"
 )
@@ -72,4 +73,20 @@ func (h *AuthHandler) CreateStaff(c *gin.Context) {
 	}
 
 	utils.RespondCreated(c, user)
+}
+
+func (h *AuthHandler) Me(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+	if claims == nil {
+		utils.RespondUnauthorized(c, "authentication required")
+		return
+	}
+
+	me, err := h.authService.GetMe(claims.UserID, claims.RoleID)
+	if err != nil {
+		utils.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.RespondOK(c, me)
 }
