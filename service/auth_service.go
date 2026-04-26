@@ -158,10 +158,6 @@ func (s *AuthService) generateToken(user *models.User) (string, error) {
 	roleID := ""
 	if user.RoleID != nil {
 		roleID = *user.RoleID
-		codes, err := s.roleRepo.GetPermissionCodes(roleID)
-		if err == nil {
-			permissions = codes
-		}
 	}
 
 	claims := JWTClaims{

@@ -3,6 +3,7 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/hotelpms/backend/models"
+	"github.com/hotelpms/backend/repository"
 	"github.com/hotelpms/backend/service"
 	"github.com/hotelpms/backend/utils"
 )
@@ -97,8 +98,9 @@ func GetClaims(c *gin.Context) *service.JWTClaims {
 }
 
 // RequirePermission checks if the authenticated user has at least one of the
-// given permission codes. Super admins bypass all permission checks.
-func RequirePermission(permissions ...string) gin.HandlerFunc {
+// given permission codes by querying fresh permissions from the DB via the
+// user's RoleID. Super admins and hotel admins bypass all permission checks.
+func RequirePermission(roleRepo *repository.RoleRepository, permissions ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := GetClaims(c)
 		if claims == nil {
@@ -107,14 +109,28 @@ func RequirePermission(permissions ...string) gin.HandlerFunc {
 			return
 		}
 
-		// Super admin bypasses all permission checks
-		if claims.Role == models.RoleSuperAdmin {
+		// Super admin and hotel admin bypass all permission checks
+		if claims.Role == models.RoleSuperAdmin || claims.Role == models.RoleHotelAdmin {
 			c.Next()
 			return
 		}
 
-		permSet := make(map[string]bool, len(claims.Permissions))
-		for _, p := range claims.Permissions {
+		if claims.RoleID == "" {
+			utils.RespondForbidden(c, "no role assigned")
+			c.Abort()
+			return
+		}
+
+		// Fetch fresh permissions from DB
+		codes, err := roleRepo.GetPermissionCodes(claims.RoleID)
+		if err != nil {
+			utils.RespondForbidden(c, "failed to verify permissions")
+			c.Abort()
+			return
+		}
+
+		permSet := make(map[string]bool, len(codes))
+		for _, p := range codes {
 			permSet[p] = true
 		}
 

@@ -100,7 +100,7 @@ func main() {
 	}
 
 	// Setup router
-	r := router.Setup(handlers, authService)
+	r := router.Setup(handlers, authService, roleRepo)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)

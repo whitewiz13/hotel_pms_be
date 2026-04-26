@@ -8,6 +8,7 @@ import (
 	"github.com/hotelpms/backend/handler"
 	"github.com/hotelpms/backend/middleware"
 	"github.com/hotelpms/backend/models"
+	"github.com/hotelpms/backend/repository"
 	"github.com/hotelpms/backend/service"
 )
 
@@ -30,8 +31,13 @@ type Handlers struct {
 	Role          *handler.RoleHandler
 }
 
-func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
+func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository) *gin.Engine {
 	r := gin.Default()
+
+	// Shorthand for permission middleware
+	perm := func(permissions ...string) gin.HandlerFunc {
+		return middleware.RequirePermission(roleRepo, permissions...)
+	}
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
@@ -75,101 +81,101 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 			hotel.Use(middleware.HotelAccessMiddleware())
 			{
 				hotel.GET("", handlers.Hotel.GetByID)
-				hotel.PUT("", middleware.RequirePermission("hotels:update"), handlers.Hotel.Update)
+				hotel.PUT("", perm("hotels:update"), handlers.Hotel.Update)
 				hotel.DELETE("", middleware.RequireSuperAdmin(), handlers.Hotel.Delete)
 
 				// Staff management
-				hotel.POST("/staff", middleware.RequirePermission("staff:create"), handlers.Auth.CreateStaff)
-				hotel.GET("/staff", middleware.RequirePermission("staff:read"), handlers.User.GetByHotelID)
+				hotel.POST("/staff", perm("staff:create"), handlers.Auth.CreateStaff)
+				hotel.GET("/staff", perm("staff:read"), handlers.User.GetByHotelID)
 
 				// Room Types
-				hotel.POST("/room-types", middleware.RequirePermission("room_types:create"), handlers.RoomType.Create)
+				hotel.POST("/room-types", perm("room_types:create"), handlers.RoomType.Create)
 				hotel.GET("/room-types", handlers.RoomType.GetAll)
 				hotel.GET("/room-types/:id", handlers.RoomType.GetByID)
-				hotel.PUT("/room-types/:id", middleware.RequirePermission("room_types:update"), handlers.RoomType.Update)
-				hotel.DELETE("/room-types/:id", middleware.RequirePermission("room_types:delete"), handlers.RoomType.Delete)
+				hotel.PUT("/room-types/:id", perm("room_types:update"), handlers.RoomType.Update)
+				hotel.DELETE("/room-types/:id", perm("room_types:delete"), handlers.RoomType.Delete)
 
 				// Rooms
-				hotel.POST("/rooms", middleware.RequirePermission("rooms:create"), handlers.Room.Create)
+				hotel.POST("/rooms", perm("rooms:create"), handlers.Room.Create)
 				hotel.GET("/rooms", handlers.Room.GetByHotelID)
 				hotel.GET("/rooms/:id", handlers.Room.GetByID)
-				hotel.PUT("/rooms/:id", middleware.RequirePermission("rooms:update"), handlers.Room.Update)
-				hotel.DELETE("/rooms/:id", middleware.RequirePermission("rooms:delete"), handlers.Room.Delete)
-				hotel.POST("/rooms/:id/pin", middleware.RequirePermission("rooms:manage_pin"), handlers.Room.GeneratePin)
-				hotel.DELETE("/rooms/:id/pin", middleware.RequirePermission("rooms:manage_pin"), handlers.Room.ClearPin)
+				hotel.PUT("/rooms/:id", perm("rooms:update"), handlers.Room.Update)
+				hotel.DELETE("/rooms/:id", perm("rooms:delete"), handlers.Room.Delete)
+				hotel.POST("/rooms/:id/pin", perm("rooms:manage_pin"), handlers.Room.GeneratePin)
+				hotel.DELETE("/rooms/:id/pin", perm("rooms:manage_pin"), handlers.Room.ClearPin)
 
 				// Reservations
-				hotel.GET("/availability", middleware.RequirePermission("reservations:read"), handlers.Reservation.GetAvailability)
-				hotel.POST("/reservations", middleware.RequirePermission("reservations:create"), handlers.Reservation.Create)
-				hotel.GET("/reservations", middleware.RequirePermission("reservations:read"), handlers.Reservation.List)
-				hotel.GET("/reservations/:id", middleware.RequirePermission("reservations:read"), handlers.Reservation.GetByID)
-				hotel.POST("/reservations/:id/check-in", middleware.RequirePermission("reservations:check_in"), handlers.Reservation.CheckIn)
-				hotel.POST("/reservations/:id/check-out", middleware.RequirePermission("reservations:check_out"), handlers.Reservation.CheckOut)
-				hotel.POST("/reservations/:id/cancel", middleware.RequirePermission("reservations:cancel"), handlers.Reservation.Cancel)
+				hotel.GET("/availability", perm("reservations:read"), handlers.Reservation.GetAvailability)
+				hotel.POST("/reservations", perm("reservations:create"), handlers.Reservation.Create)
+				hotel.GET("/reservations", perm("reservations:read"), handlers.Reservation.List)
+				hotel.GET("/reservations/:id", perm("reservations:read"), handlers.Reservation.GetByID)
+				hotel.POST("/reservations/:id/check-in", perm("reservations:check_in"), handlers.Reservation.CheckIn)
+				hotel.POST("/reservations/:id/check-out", perm("reservations:check_out"), handlers.Reservation.CheckOut)
+				hotel.POST("/reservations/:id/cancel", perm("reservations:cancel"), handlers.Reservation.Cancel)
 
 				// Amenities
-				hotel.POST("/amenities", middleware.RequirePermission("amenities:create"), handlers.Amenity.Create)
+				hotel.POST("/amenities", perm("amenities:create"), handlers.Amenity.Create)
 				hotel.GET("/amenities", handlers.Amenity.GetAll)
 				hotel.GET("/amenities/:id", handlers.Amenity.GetByID)
-				hotel.PUT("/amenities/:id", middleware.RequirePermission("amenities:update"), handlers.Amenity.Update)
-				hotel.DELETE("/amenities/:id", middleware.RequirePermission("amenities:delete"), handlers.Amenity.Delete)
+				hotel.PUT("/amenities/:id", perm("amenities:update"), handlers.Amenity.Update)
+				hotel.DELETE("/amenities/:id", perm("amenities:delete"), handlers.Amenity.Delete)
 
 				// Housekeeping
-				hotel.POST("/housekeeping", middleware.RequirePermission("housekeeping:assign"), handlers.Housekeeping.Assign)
-				hotel.GET("/housekeeping", middleware.RequirePermission("housekeeping:read"), handlers.Housekeeping.List)
-				hotel.GET("/housekeeping/:id", middleware.RequirePermission("housekeeping:read"), handlers.Housekeeping.GetByID)
-				hotel.POST("/housekeeping/:id/start", middleware.RequirePermission("housekeeping:update"), handlers.Housekeeping.Start)
-				hotel.POST("/housekeeping/:id/complete", middleware.RequirePermission("housekeeping:update"), handlers.Housekeeping.Complete)
+				hotel.POST("/housekeeping", perm("housekeeping:assign"), handlers.Housekeeping.Assign)
+				hotel.GET("/housekeeping", perm("housekeeping:read"), handlers.Housekeeping.List)
+				hotel.GET("/housekeeping/:id", perm("housekeeping:read"), handlers.Housekeeping.GetByID)
+				hotel.POST("/housekeeping/:id/start", perm("housekeeping:update"), handlers.Housekeeping.Start)
+				hotel.POST("/housekeeping/:id/complete", perm("housekeeping:update"), handlers.Housekeeping.Complete)
 
 				// Menu (Room Service)
-				hotel.POST("/menu", middleware.RequirePermission("menu:create"), handlers.Menu.Create)
-				hotel.GET("/menu", middleware.RequirePermission("menu:read"), handlers.Menu.List)
-				hotel.GET("/menu/:id", middleware.RequirePermission("menu:read"), handlers.Menu.GetByID)
-				hotel.PUT("/menu/:id", middleware.RequirePermission("menu:update"), handlers.Menu.Update)
-				hotel.DELETE("/menu/:id", middleware.RequirePermission("menu:delete"), handlers.Menu.Delete)
+				hotel.POST("/menu", perm("menu:create"), handlers.Menu.Create)
+				hotel.GET("/menu", perm("menu:read"), handlers.Menu.List)
+				hotel.GET("/menu/:id", perm("menu:read"), handlers.Menu.GetByID)
+				hotel.PUT("/menu/:id", perm("menu:update"), handlers.Menu.Update)
+				hotel.DELETE("/menu/:id", perm("menu:delete"), handlers.Menu.Delete)
 
 				// Orders (Room Service)
-				hotel.POST("/orders", middleware.RequirePermission("orders:create"), handlers.Order.Create)
-				hotel.GET("/orders", middleware.RequirePermission("orders:read"), handlers.Order.List)
-				hotel.GET("/orders/:id", middleware.RequirePermission("orders:read"), handlers.Order.GetByID)
-				hotel.POST("/orders/:id/status", middleware.RequirePermission("orders:update_status"), handlers.Order.UpdateStatus)
-				hotel.POST("/orders/:id/assign", middleware.RequirePermission("orders:assign"), handlers.Order.Assign)
+				hotel.POST("/orders", perm("orders:create"), handlers.Order.Create)
+				hotel.GET("/orders", perm("orders:read"), handlers.Order.List)
+				hotel.GET("/orders/:id", perm("orders:read"), handlers.Order.GetByID)
+				hotel.POST("/orders/:id/status", perm("orders:update_status"), handlers.Order.UpdateStatus)
+				hotel.POST("/orders/:id/assign", perm("orders:assign"), handlers.Order.Assign)
 
 				// Activities
-				hotel.POST("/activities", middleware.RequirePermission("activities:create"), handlers.Activity.Create)
-				hotel.GET("/activities", middleware.RequirePermission("activities:read"), handlers.Activity.List)
-				hotel.GET("/activities/:id", middleware.RequirePermission("activities:read"), handlers.Activity.GetByID)
-				hotel.PUT("/activities/:id", middleware.RequirePermission("activities:update"), handlers.Activity.Update)
-				hotel.DELETE("/activities/:id", middleware.RequirePermission("activities:delete"), handlers.Activity.Delete)
+				hotel.POST("/activities", perm("activities:create"), handlers.Activity.Create)
+				hotel.GET("/activities", perm("activities:read"), handlers.Activity.List)
+				hotel.GET("/activities/:id", perm("activities:read"), handlers.Activity.GetByID)
+				hotel.PUT("/activities/:id", perm("activities:update"), handlers.Activity.Update)
+				hotel.DELETE("/activities/:id", perm("activities:delete"), handlers.Activity.Delete)
 
 				// Activity Bookings
-				hotel.POST("/activity-bookings", middleware.RequirePermission("activity_bookings:create"), handlers.Activity.CreateBooking)
-				hotel.GET("/activity-bookings", middleware.RequirePermission("activity_bookings:read"), handlers.Activity.ListBookings)
-				hotel.GET("/activity-bookings/:id", middleware.RequirePermission("activity_bookings:read"), handlers.Activity.GetBookingByID)
-				hotel.POST("/activity-bookings/:id/status", middleware.RequirePermission("activity_bookings:update_status"), handlers.Activity.UpdateBookingStatus)
+				hotel.POST("/activity-bookings", perm("activity_bookings:create"), handlers.Activity.CreateBooking)
+				hotel.GET("/activity-bookings", perm("activity_bookings:read"), handlers.Activity.ListBookings)
+				hotel.GET("/activity-bookings/:id", perm("activity_bookings:read"), handlers.Activity.GetBookingByID)
+				hotel.POST("/activity-bookings/:id/status", perm("activity_bookings:update_status"), handlers.Activity.UpdateBookingStatus)
 
 				// Billing
-				hotel.POST("/reservations/:id/bill", middleware.RequirePermission("billing:generate"), handlers.Bill.Generate)
-				hotel.GET("/reservations/:id/bill", middleware.RequirePermission("billing:read"), handlers.Bill.GetByReservation)
-				hotel.GET("/bills", middleware.RequirePermission("billing:read"), handlers.Bill.List)
-				hotel.GET("/bills/:id", middleware.RequirePermission("billing:read"), handlers.Bill.GetByID)
-				hotel.POST("/bills/:id/pay", middleware.RequirePermission("billing:pay"), handlers.Bill.MarkPaid)
+				hotel.POST("/reservations/:id/bill", perm("billing:generate"), handlers.Bill.Generate)
+				hotel.GET("/reservations/:id/bill", perm("billing:read"), handlers.Bill.GetByReservation)
+				hotel.GET("/bills", perm("billing:read"), handlers.Bill.List)
+				hotel.GET("/bills/:id", perm("billing:read"), handlers.Bill.GetByID)
+				hotel.POST("/bills/:id/pay", perm("billing:pay"), handlers.Bill.MarkPaid)
 
 				// Dashboard
-				hotel.GET("/dashboard/stats", middleware.RequirePermission("dashboard:view"), handlers.Dashboard.GetStats)
-				hotel.GET("/activity", middleware.RequirePermission("dashboard:view"), handlers.Dashboard.GetActivity)
+				hotel.GET("/dashboard/stats", perm("dashboard:view"), handlers.Dashboard.GetStats)
+				hotel.GET("/activity", perm("dashboard:view"), handlers.Dashboard.GetActivity)
 
 				// Guest Settings
-				hotel.POST("/guest-settings", middleware.RequirePermission("guest_settings:update"), handlers.GuestSettings.Save)
-				hotel.GET("/guest-settings", middleware.RequirePermission("guest_settings:read"), handlers.GuestSettings.Get)
+				hotel.POST("/guest-settings", perm("guest_settings:update"), handlers.GuestSettings.Save)
+				hotel.GET("/guest-settings", perm("guest_settings:read"), handlers.GuestSettings.Get)
 
 				// Roles & Permissions
-				hotel.GET("/permissions", middleware.RequirePermission("roles:read"), handlers.Role.GetPermissions)
-				hotel.POST("/roles", middleware.RequirePermission("roles:create"), handlers.Role.Create)
-				hotel.GET("/roles", middleware.RequirePermission("roles:read"), handlers.Role.GetAll)
-				hotel.GET("/roles/:id", middleware.RequirePermission("roles:read"), handlers.Role.GetByID)
-				hotel.PUT("/roles/:id", middleware.RequirePermission("roles:update"), handlers.Role.Update)
-				hotel.DELETE("/roles/:id", middleware.RequirePermission("roles:delete"), handlers.Role.Delete)
+				hotel.GET("/permissions", perm("roles:read"), handlers.Role.GetPermissions)
+				hotel.POST("/roles", perm("roles:create"), handlers.Role.Create)
+				hotel.GET("/roles", perm("roles:read"), handlers.Role.GetAll)
+				hotel.GET("/roles/:id", perm("roles:read"), handlers.Role.GetByID)
+				hotel.PUT("/roles/:id", perm("roles:update"), handlers.Role.Update)
+				hotel.DELETE("/roles/:id", perm("roles:delete"), handlers.Role.Delete)
 			}
 
 			// Guest self-service (authenticated guests only)
