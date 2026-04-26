@@ -84,43 +84,6 @@ func RequireSuperAdmin() gin.HandlerFunc {
 	return RequireRole(models.RoleSuperAdmin)
 }
 
-// RequireHotelAdminOrAbove = super_admin + hotel_admin
-func RequireHotelAdminOrAbove() gin.HandlerFunc {
-	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin)
-}
-
-// RequireHotelManagement = super_admin + hotel_admin + manager
-func RequireHotelManagement() gin.HandlerFunc {
-	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager)
-}
-
-// RequireHotelFrontDeskOrAbove = super_admin + hotel_admin + manager + front_desk
-func RequireHotelFrontDeskOrAbove() gin.HandlerFunc {
-	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager, models.RoleFrontDesk)
-}
-
-// RequireHousekeepingOrAbove = super_admin + hotel_admin + manager + front_desk + housekeeping
-func RequireHousekeepingOrAbove() gin.HandlerFunc {
-	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager, models.RoleFrontDesk, models.RoleHousekeeping)
-}
-
-// RequireRoomServiceOrAbove = super_admin + hotel_admin + manager + front_desk + room_service
-func RequireRoomServiceOrAbove() gin.HandlerFunc {
-	return RequireRole(models.RoleSuperAdmin, models.RoleHotelAdmin, models.RoleManager, models.RoleFrontDesk, models.RoleRoomService)
-}
-
-// RequireAnyStaff = every role in ValidRoles (all non-guest authenticated users)
-func RequireAnyStaff() gin.HandlerFunc {
-	return RequireRole(models.ValidRoles...)
-}
-
-// RequireAnyAuthenticated = any staff role + guest
-func RequireAnyAuthenticated() gin.HandlerFunc {
-	roles := append([]models.UserRole{}, models.ValidRoles...)
-	roles = append(roles, models.RoleGuest)
-	return RequireRole(roles...)
-}
-
 func GetClaims(c *gin.Context) *service.JWTClaims {
 	claimsVal, exists := c.Get(ContextKeyClaims)
 	if !exists {
