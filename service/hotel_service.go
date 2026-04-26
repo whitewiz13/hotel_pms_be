@@ -15,13 +15,15 @@ import (
 )
 
 type HotelService struct {
-	db        *gorm.DB
-	hotelRepo *repository.HotelRepository
-	userRepo  *repository.UserRepository
+	db             *gorm.DB
+	hotelRepo      *repository.HotelRepository
+	userRepo       *repository.UserRepository
+	roleRepo       *repository.RoleRepository
+	permissionRepo *repository.PermissionRepository
 }
 
-func NewHotelService(db *gorm.DB, hotelRepo *repository.HotelRepository, userRepo *repository.UserRepository) *HotelService {
-	return &HotelService{db: db, hotelRepo: hotelRepo, userRepo: userRepo}
+func NewHotelService(db *gorm.DB, hotelRepo *repository.HotelRepository, userRepo *repository.UserRepository, roleRepo *repository.RoleRepository, permissionRepo *repository.PermissionRepository) *HotelService {
+	return &HotelService{db: db, hotelRepo: hotelRepo, userRepo: userRepo, roleRepo: roleRepo, permissionRepo: permissionRepo}
 }
 
 func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, *models.User, error) {
@@ -64,11 +66,44 @@ func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, *model
 		}
 
 		hotelID := hotel.ID.String()
+
+		// Create Hotel Admin role with all permissions except super-admin-only ones
+		allPerms, err := s.permissionRepo.FindAll()
+		if err != nil {
+			return fmt.Errorf("failed to load permissions: %w", err)
+		}
+
+		// Exclude super-admin-only permissions
+		excluded := map[string]bool{
+			"hotels:read":   true,
+			"hotels:update": true,
+		}
+		var rolePerms []models.Permission
+		for _, p := range allPerms {
+			if !excluded[p.Code] {
+				rolePerms = append(rolePerms, p)
+			}
+		}
+
+		adminRole := &models.Role{
+			HotelID:     &hotelID,
+			Name:        "Hotel Admin",
+			Slug:        "hotel-admin",
+			Description: "Full access to all hotel features",
+			IsSystem:    false,
+			Permissions: rolePerms,
+		}
+		if err := tx.Create(adminRole).Error; err != nil {
+			return fmt.Errorf("failed to create admin role: %w", err)
+		}
+
+		roleID := adminRole.ID.String()
 		admin = &models.User{
 			Email:        req.AdminEmail,
 			PasswordHash: hash,
 			Name:         req.AdminName,
 			Role:         models.RoleHotelAdmin,
+			RoleID:       &roleID,
 			HotelID:      &hotelID,
 			IsActive:     true,
 		}
