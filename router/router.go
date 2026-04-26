@@ -12,19 +12,20 @@ import (
 )
 
 type Handlers struct {
-	Auth         *handler.AuthHandler
-	Hotel        *handler.HotelHandler
-	Room         *handler.RoomHandler
-	Amenity      *handler.AmenityHandler
-	User         *handler.UserHandler
-	Reservation  *handler.ReservationHandler
-	Housekeeping *handler.HousekeepingHandler
-	Dashboard    *handler.DashboardHandler
-	Menu         *handler.MenuHandler
-	Order        *handler.OrderHandler
-	Activity     *handler.ActivityHandler
-	Bill         *handler.BillHandler
-	Guest        *handler.GuestHandler
+	Auth          *handler.AuthHandler
+	Hotel         *handler.HotelHandler
+	Room          *handler.RoomHandler
+	RoomType      *handler.RoomTypeHandler
+	Amenity       *handler.AmenityHandler
+	User          *handler.UserHandler
+	Reservation   *handler.ReservationHandler
+	Housekeeping  *handler.HousekeepingHandler
+	Dashboard     *handler.DashboardHandler
+	Menu          *handler.MenuHandler
+	Order         *handler.OrderHandler
+	Activity      *handler.ActivityHandler
+	Bill          *handler.BillHandler
+	Guest         *handler.GuestHandler
 	GuestSettings *handler.GuestSettingsHandler
 }
 
@@ -79,6 +80,13 @@ func Setup(handlers *Handlers, authService *service.AuthService) *gin.Engine {
 				// Staff management
 				hotel.POST("/staff", middleware.RequireHotelAdminOrAbove(), handlers.Auth.CreateStaff)
 				hotel.GET("/staff", middleware.RequireHotelAdminOrAbove(), handlers.User.GetByHotelID)
+
+				// Room Types
+				hotel.POST("/room-types", middleware.RequireHotelAdminOrAbove(), handlers.RoomType.Create)
+				hotel.GET("/room-types", handlers.RoomType.GetAll)
+				hotel.GET("/room-types/:id", handlers.RoomType.GetByID)
+				hotel.PUT("/room-types/:id", middleware.RequireHotelAdminOrAbove(), handlers.RoomType.Update)
+				hotel.DELETE("/room-types/:id", middleware.RequireHotelAdminOrAbove(), handlers.RoomType.Delete)
 
 				// Rooms
 				hotel.POST("/rooms", middleware.RequireHotelFrontDeskOrAbove(), handlers.Room.Create)

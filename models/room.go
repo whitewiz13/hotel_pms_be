@@ -1,15 +1,5 @@
 package models
 
-type RoomType string
-
-const (
-	RoomTypeSingle  RoomType = "single"
-	RoomTypeDouble  RoomType = "double"
-	RoomTypeSuite   RoomType = "suite"
-	RoomTypeDeluxe  RoomType = "deluxe"
-	RoomTypePenthouse RoomType = "penthouse"
-)
-
 type RoomStatus string
 
 const (
@@ -24,7 +14,7 @@ type Room struct {
 	BaseModel
 	HotelID      string     `gorm:"type:uuid;not null;index" json:"hotel_id"`
 	RoomNumber   string     `gorm:"not null;size:20" json:"room_number"`
-	RoomType     RoomType   `gorm:"type:varchar(20);not null;default:'single'" json:"room_type"`
+	RoomType     string     `gorm:"type:varchar(50);not null" json:"room_type"`
 	Floor        int        `gorm:"not null;default:1" json:"floor"`
 	Status       RoomStatus `gorm:"type:varchar(20);not null;default:'available'" json:"status"`
 	PricePerNight float64   `gorm:"not null;default:0" json:"price_per_night"`

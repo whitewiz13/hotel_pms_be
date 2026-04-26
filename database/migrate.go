@@ -222,6 +222,38 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260426_010_room_types",
+			Apply: func(db *gorm.DB) error {
+				// Create room_types table
+				if err := db.AutoMigrate(&models.RoomType{}); err != nil {
+					return err
+				}
+
+				db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_room_types_hotel_name ON room_types(hotel_id, LOWER(name)) WHERE deleted_at IS NULL`)
+
+				// Seed default room types for each existing hotel
+				var hotels []models.Hotel
+				db.Find(&hotels)
+				defaults := []struct{ Name, Desc string }{
+					{"Single", "Single occupancy room"},
+					{"Double", "Double occupancy room"},
+					{"Suite", "Luxury suite"},
+					{"Deluxe", "Deluxe room"},
+					{"Penthouse", "Penthouse suite"},
+				}
+				for _, h := range hotels {
+					for _, d := range defaults {
+						db.Exec(`INSERT INTO room_types (id, hotel_id, name, description, is_active, created_at, updated_at) VALUES (gen_random_uuid(), ?, ?, ?, true, NOW(), NOW()) ON CONFLICT DO NOTHING`, h.ID, d.Name, d.Desc)
+					}
+				}
+
+				// Widen rooms.room_type column to varchar(50) if needed
+				db.Exec(`ALTER TABLE rooms ALTER COLUMN room_type TYPE VARCHAR(50)`)
+
+				return nil
+			},
+		},
 	}
 }
 
