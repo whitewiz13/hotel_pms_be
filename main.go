@@ -52,6 +52,7 @@ func main() {
 	reservationRepo := repository.NewReservationRepository(db)
 	housekeepingRepo := repository.NewHousekeepingRepository(db)
 	dashboardRepo := repository.NewDashboardRepository(db)
+	analyticsRepo := repository.NewAnalyticsRepository(db)
 	menuRepo := repository.NewMenuRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	activityRepo := repository.NewActivityRepository(db)
@@ -72,6 +73,7 @@ func main() {
 	reservationService := service.NewReservationService(db, reservationRepo, roomRepo, billRepo, guestRepo)
 	housekeepingService := service.NewHousekeepingService(db, housekeepingRepo, roomRepo, userRepo)
 	dashboardService := service.NewDashboardService(dashboardRepo)
+	analyticsService := service.NewAnalyticsService(analyticsRepo)
 	menuService := service.NewMenuService(menuRepo)
 	orderService := service.NewOrderService(db, orderRepo, menuRepo, roomRepo, reservationRepo, userRepo)
 	activityService := service.NewActivityService(activityRepo, roomRepo, reservationRepo)
@@ -97,6 +99,7 @@ func main() {
 		Guest:        handler.NewGuestHandler(guestService),
 		GuestSettings: handler.NewGuestSettingsHandler(guestSettingsService),
 		Role:          handler.NewRoleHandler(roleService),
+		Analytics:     handler.NewAnalyticsHandler(analyticsService),
 	}
 
 	// Setup router

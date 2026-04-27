@@ -77,6 +77,22 @@ func seeders() []seeder {
 				return nil
 			},
 		},
+		{
+			Name: "20260427_003_analytics_permission",
+			Apply: func(db *gorm.DB) error {
+				perm := models.Permission{
+					Code:        "analytics:view",
+					Module:      "analytics",
+					Action:      "view",
+					Description: "View analytics and reports",
+				}
+				if err := db.Create(&perm).Error; err != nil {
+					return fmt.Errorf("failed to seed analytics permission: %w", err)
+				}
+				log.Println("Seeded analytics:view permission")
+				return nil
+			},
+		},
 	}
 }
 

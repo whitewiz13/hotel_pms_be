@@ -101,6 +101,9 @@ func AllPermissionDefs() []PermissionDef {
 		{"roles:update", "roles", "update", "Update roles and permissions"},
 		{"roles:delete", "roles", "delete", "Delete custom roles"},
 
+		// Analytics
+		{"analytics:view", "analytics", "view", "View analytics and reports"},
+
 		// Hotel Settings
 		{"hotels:read", "hotels", "read", "View hotel details"},
 		{"hotels:update", "hotels", "update", "Update hotel settings"},

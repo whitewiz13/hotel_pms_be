@@ -29,6 +29,7 @@ type Handlers struct {
 	Guest         *handler.GuestHandler
 	GuestSettings *handler.GuestSettingsHandler
 	Role          *handler.RoleHandler
+	Analytics     *handler.AnalyticsHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository) *gin.Engine {
@@ -40,7 +41,7 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 	}
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5173","http://192.168.29.194:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -167,6 +168,16 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 				// Dashboard
 				hotel.GET("/dashboard/stats", perm("dashboard:view"), handlers.Dashboard.GetStats)
 				hotel.GET("/activity", perm("dashboard:view"), handlers.Dashboard.GetActivity)
+
+				// Analytics
+				analytics := hotel.Group("/analytics")
+				{
+					analytics.GET("/summary", perm("analytics:view"), handlers.Analytics.GetSummary)
+					analytics.GET("/occupancy", perm("analytics:view"), handlers.Analytics.GetOccupancyTrend)
+					analytics.GET("/revenue", perm("analytics:view"), handlers.Analytics.GetRevenueTrend)
+					analytics.GET("/reservations", perm("analytics:view"), handlers.Analytics.GetReservationStats)
+					analytics.GET("/room-types", perm("analytics:view"), handlers.Analytics.GetRoomTypePerformance)
+				}
 
 				// Guest Settings
 				hotel.POST("/guest-settings", perm("guest_settings:update"), handlers.GuestSettings.Save)
