@@ -86,7 +86,7 @@ func seeders() []seeder {
 					Action:      "view",
 					Description: "View analytics and reports",
 				}
-				if err := db.Create(&perm).Error; err != nil {
+				if err := db.Where("code = ?", perm.Code).FirstOrCreate(&perm).Error; err != nil {
 					return fmt.Errorf("failed to seed analytics permission: %w", err)
 				}
 				log.Println("Seeded analytics:view permission")
