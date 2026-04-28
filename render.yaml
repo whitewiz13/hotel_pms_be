@@ -1,0 +1,51 @@
+databases:
+  - name: hotel-pms-db
+    plan: free
+    databaseName: hotel_pms
+    user: hotel_pms_user
+
+services:
+  - type: web
+    name: hotel-pms-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SERVER_PORT
+        value: "8080"
+      - key: GIN_MODE
+        value: release
+      - key: DB_HOST
+        fromDatabase:
+          name: hotel-pms-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: hotel-pms-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: hotel-pms-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: hotel-pms-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: hotel-pms-db
+          property: database
+      - key: DB_SSLMODE
+        value: require
+      - key: DB_TIMEZONE
+        value: UTC
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY_HOURS
+        value: "24"
+      - key: JWT_GUEST_EXPIRY_HOURS
+        value: "12"
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: SEED_DB
+        value: "false"

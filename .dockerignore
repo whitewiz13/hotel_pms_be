@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+.git/
+.gitignore
+README.md
+*.md
+scripts/
