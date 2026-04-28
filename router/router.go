@@ -41,7 +41,7 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 	}
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173","http://192.168.29.194:5173"},
+		AllowOrigins:     []string{"http://localhost:5173","http://192.168.29.194:5173", "https://wizhotelpms.netlify.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
