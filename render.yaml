@@ -49,3 +49,5 @@ services:
         value: "true"
       - key: SEED_DB
         value: "false"
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false # set manually in Render dashboard

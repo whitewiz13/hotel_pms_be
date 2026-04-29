@@ -64,7 +64,7 @@ func main() {
 	fcmTokenRepo := repository.NewFCMTokenRepository(db)
 
 	// Initialize notification service
-	notificationService := service.NewNotificationService(cfg.Firebase.CredentialsFile, fcmTokenRepo)
+	notificationService := service.NewNotificationService(cfg.Firebase.CredentialsFile, cfg.Firebase.CredentialsJSON, fcmTokenRepo)
 
 	// Initialize services
 	roleService := service.NewRoleService(roleRepo, permissionRepo)

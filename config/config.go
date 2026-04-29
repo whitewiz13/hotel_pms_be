@@ -44,6 +44,7 @@ type UploadConfig struct {
 
 type FirebaseConfig struct {
 	CredentialsFile string // path to Firebase service account JSON (optional; falls back to GOOGLE_APPLICATION_CREDENTIALS)
+	CredentialsJSON string // raw JSON content of Firebase service account (used on Render/production)
 }
 
 func (d *DatabaseConfig) DSN() string {
@@ -84,6 +85,7 @@ func Load() (*Config, error) {
 		},
 		Firebase: FirebaseConfig{
 			CredentialsFile: getEnv("FIREBASE_CREDENTIALS_FILE", "./hotel-pms-b17e6-firebase-adminsdk-fbsvc-e26d2218d8.json"),
+			CredentialsJSON: getEnv("FIREBASE_CREDENTIALS_JSON", ""),
 		},
 	}
 

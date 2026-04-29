@@ -17,14 +17,17 @@ type NotificationService struct {
 }
 
 // NewNotificationService initialises Firebase and returns the service.
-// If credentialsFile is empty it falls back to GOOGLE_APPLICATION_CREDENTIALS env var.
-func NewNotificationService(credentialsFile string, fcmTokenRepo *repository.FCMTokenRepository) *NotificationService {
+// It prefers credentialsJSON (raw JSON string, for production/Render),
+// then credentialsFile (local file path), then GOOGLE_APPLICATION_CREDENTIALS env var.
+func NewNotificationService(credentialsFile, credentialsJSON string, fcmTokenRepo *repository.FCMTokenRepository) *NotificationService {
 	ctx := context.Background()
 
 	var app *firebase.App
 	var err error
 
-	if credentialsFile != "" {
+	if credentialsJSON != "" {
+		app, err = firebase.NewApp(ctx, nil, option.WithCredentialsJSON([]byte(credentialsJSON)))
+	} else if credentialsFile != "" {
 		app, err = firebase.NewApp(ctx, nil, option.WithCredentialsFile(credentialsFile))
 	} else {
 		app, err = firebase.NewApp(ctx, nil)
