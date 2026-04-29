@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/hotelpms/backend/dto"
@@ -10,20 +11,23 @@ import (
 )
 
 type ActivityService struct {
-	activityRepo    *repository.ActivityRepository
-	roomRepo        *repository.RoomRepository
-	reservationRepo *repository.ReservationRepository
+	activityRepo        *repository.ActivityRepository
+	roomRepo            *repository.RoomRepository
+	reservationRepo     *repository.ReservationRepository
+	notificationService *NotificationService
 }
 
 func NewActivityService(
 	activityRepo *repository.ActivityRepository,
 	roomRepo *repository.RoomRepository,
 	reservationRepo *repository.ReservationRepository,
+	notificationService *NotificationService,
 ) *ActivityService {
 	return &ActivityService{
-		activityRepo:    activityRepo,
-		roomRepo:        roomRepo,
-		reservationRepo: reservationRepo,
+		activityRepo:        activityRepo,
+		roomRepo:            roomRepo,
+		reservationRepo:     reservationRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -159,6 +163,21 @@ func (s *ActivityService) CreateBooking(hotelID string, req dto.CreateActivityBo
 		return nil, errors.New("failed to create activity booking")
 	}
 
+	// Notify hotel staff about the new activity booking
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"New Activity Booking",
+			fmt.Sprintf("%s booked %s — Room %s", req.GuestName, activity.Name, room.RoomNumber),
+			map[string]string{
+				"type":       "new_activity_booking",
+				"booking_id": booking.ID.String(),
+				"hotel_id":   hotelID,
+			},
+			"activity_bookings:read", "activity_bookings:update_status",
+		)
+	}
+
 	return s.activityRepo.FindBookingByID(booking.ID.String())
 }
 
@@ -208,6 +227,22 @@ func (s *ActivityService) UpdateBookingStatus(id, hotelID string, req dto.Update
 	booking.Status = newStatus
 	if err := s.activityRepo.UpdateBooking(booking); err != nil {
 		return nil, errors.New("failed to update activity booking")
+	}
+
+	// Notify staff about booking status change
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			fmt.Sprintf("Activity Booking %s", string(newStatus)),
+			fmt.Sprintf("%s's %s booking is now %s", booking.GuestName, booking.Activity.Name, string(newStatus)),
+			map[string]string{
+				"type":       "activity_booking_status",
+				"booking_id": id,
+				"status":     string(newStatus),
+				"hotel_id":   hotelID,
+			},
+			"activity_bookings:read",
+		)
 	}
 
 	return booking, nil

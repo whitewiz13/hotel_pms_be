@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/hotelpms/backend/dto"
@@ -14,20 +15,22 @@ import (
 const dateLayout = "2006-01-02"
 
 type ReservationService struct {
-	db              *gorm.DB
-	reservationRepo *repository.ReservationRepository
-	roomRepo        *repository.RoomRepository
-	billRepo        *repository.BillRepository
-	guestRepo       *repository.GuestRepository
+	db                  *gorm.DB
+	reservationRepo     *repository.ReservationRepository
+	roomRepo            *repository.RoomRepository
+	billRepo            *repository.BillRepository
+	guestRepo           *repository.GuestRepository
+	notificationService *NotificationService
 }
 
-func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository, billRepo *repository.BillRepository, guestRepo *repository.GuestRepository) *ReservationService {
+func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository, billRepo *repository.BillRepository, guestRepo *repository.GuestRepository, notificationService *NotificationService) *ReservationService {
 	return &ReservationService{
-		db:              db,
-		reservationRepo: reservationRepo,
-		roomRepo:        roomRepo,
-		billRepo:        billRepo,
-		guestRepo:       guestRepo,
+		db:                  db,
+		reservationRepo:     reservationRepo,
+		roomRepo:            roomRepo,
+		billRepo:            billRepo,
+		guestRepo:           guestRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -125,6 +128,21 @@ func (s *ReservationService) Create(hotelID string, req dto.CreateReservationReq
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Notify front-desk / reservations staff
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"New Reservation",
+			fmt.Sprintf("%s — Room %s (%s to %s)", req.GuestName, room.RoomNumber, req.CheckInDate, req.CheckOutDate),
+			map[string]string{
+				"type":           "new_reservation",
+				"reservation_id": reservation.ID.String(),
+				"hotel_id":       hotelID,
+			},
+			"reservations:read", "reservations:check_in",
+		)
 	}
 
 	return s.reservationRepo.FindByID(reservation.ID.String())
@@ -255,6 +273,21 @@ func (s *ReservationService) CheckIn(id, hotelID string, req dto.CheckInRequest)
 		return nil, "", err
 	}
 
+	// Notify staff about the check-in
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"Guest Checked In",
+			fmt.Sprintf("%s checked into Room %s", reservation.GuestName, reservation.Room.RoomNumber),
+			map[string]string{
+				"type":           "check_in",
+				"reservation_id": id,
+				"hotel_id":       hotelID,
+			},
+			"reservations:read", "reservations:check_in",
+		)
+	}
+
 	return reservation, pin, nil
 }
 
@@ -302,6 +335,21 @@ func (s *ReservationService) CheckOut(id, hotelID string) (*models.Reservation, 
 		return nil, err
 	}
 
+	// Notify staff about check-out; housekeeping will need to clean the room
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"Guest Checked Out",
+			fmt.Sprintf("%s checked out of Room %s — room needs cleaning", reservation.GuestName, reservation.Room.RoomNumber),
+			map[string]string{
+				"type":           "check_out",
+				"reservation_id": id,
+				"hotel_id":       hotelID,
+			},
+			"reservations:read", "housekeeping:assign",
+		)
+	}
+
 	return reservation, nil
 }
 
@@ -337,6 +385,21 @@ func (s *ReservationService) Cancel(id, hotelID string) (*models.Reservation, er
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Notify staff about cancellation
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"Reservation Cancelled",
+			fmt.Sprintf("%s \u2014 Room %s is now available", reservation.GuestName, reservation.Room.RoomNumber),
+			map[string]string{
+				"type":           "reservation_cancelled",
+				"reservation_id": id,
+				"hotel_id":       hotelID,
+			},
+			"reservations:read",
+		)
 	}
 
 	return reservation, nil

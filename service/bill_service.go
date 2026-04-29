@@ -12,12 +12,13 @@ import (
 )
 
 type BillService struct {
-	db              *gorm.DB
-	billRepo        *repository.BillRepository
-	reservationRepo *repository.ReservationRepository
-	orderRepo       *repository.OrderRepository
-	activityRepo    *repository.ActivityRepository
-	roomRepo        *repository.RoomRepository
+	db                  *gorm.DB
+	billRepo            *repository.BillRepository
+	reservationRepo     *repository.ReservationRepository
+	orderRepo           *repository.OrderRepository
+	activityRepo        *repository.ActivityRepository
+	roomRepo            *repository.RoomRepository
+	notificationService *NotificationService
 }
 
 func NewBillService(
@@ -27,14 +28,16 @@ func NewBillService(
 	orderRepo *repository.OrderRepository,
 	activityRepo *repository.ActivityRepository,
 	roomRepo *repository.RoomRepository,
+	notificationService *NotificationService,
 ) *BillService {
 	return &BillService{
-		db:              db,
-		billRepo:        billRepo,
-		reservationRepo: reservationRepo,
-		orderRepo:       orderRepo,
-		activityRepo:    activityRepo,
-		roomRepo:        roomRepo,
+		db:                  db,
+		billRepo:            billRepo,
+		reservationRepo:     reservationRepo,
+		orderRepo:           orderRepo,
+		activityRepo:        activityRepo,
+		roomRepo:            roomRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -172,6 +175,22 @@ func (s *BillService) Generate(hotelID, reservationID string, req dto.GenerateBi
 		return nil, err
 	}
 
+	// Notify front-desk about the generated bill
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"Bill Generated",
+			fmt.Sprintf("Bill for %s — $%.2f (Room %s)", reservation.GuestName, totalAmount, room.RoomNumber),
+			map[string]string{
+				"type":           "bill_generated",
+				"bill_id":        bill.ID.String(),
+				"reservation_id": reservationID,
+				"hotel_id":       hotelID,
+			},
+			"billing:read", "billing:pay",
+		)
+	}
+
 	return s.billRepo.FindByID(bill.ID.String())
 }
 
@@ -220,6 +239,21 @@ func (s *BillService) MarkPaid(id, hotelID string) (*models.Bill, error) {
 	bill.Status = models.BillStatusPaid
 	if err := s.billRepo.Update(bill); err != nil {
 		return nil, errors.New("failed to update bill status")
+	}
+
+	// Notify staff that bill is paid — guest can now check out
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"Bill Paid",
+			fmt.Sprintf("%s paid $%.2f — ready for checkout", bill.GuestName, bill.TotalAmount),
+			map[string]string{
+				"type":    "bill_paid",
+				"bill_id": id,
+				"hotel_id": hotelID,
+			},
+			"billing:read", "reservations:check_out",
+		)
 	}
 
 	return bill, nil

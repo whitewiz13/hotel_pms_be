@@ -170,6 +170,22 @@ func (s *OrderService) UpdateStatus(id, hotelID string, req dto.UpdateOrderStatu
 		return nil, errors.New("failed to update order status")
 	}
 
+	// Notify relevant staff about status change
+	if s.notificationService != nil {
+		title := fmt.Sprintf("Order %s", string(newStatus))
+		body := fmt.Sprintf("Order for %s — Room %s is now %s", order.GuestName, order.Room.RoomNumber, string(newStatus))
+		go s.notificationService.SendToHotelStaff(
+			hotelID, title, body,
+			map[string]string{
+				"type":     "order_status_update",
+				"order_id": id,
+				"status":   string(newStatus),
+				"hotel_id": hotelID,
+			},
+			"orders:read", "orders:update_status",
+		)
+	}
+
 	return order, nil
 }
 
@@ -195,6 +211,20 @@ func (s *OrderService) Assign(id, hotelID string, req dto.AssignOrderRequest) (*
 	order.AssignedToID = &req.AssignedToID
 	if err := s.orderRepo.Update(order); err != nil {
 		return nil, errors.New("failed to assign order")
+	}
+
+	// Notify the assigned staff member
+	if s.notificationService != nil {
+		go s.notificationService.SendToUser(
+			req.AssignedToID,
+			"Order Assigned to You",
+			fmt.Sprintf("Order for %s — Room %s", order.GuestName, order.Room.RoomNumber),
+			map[string]string{
+				"type":     "order_assigned",
+				"order_id": id,
+				"hotel_id": hotelID,
+			},
+		)
 	}
 
 	return s.orderRepo.FindByIDAndHotel(id, hotelID)

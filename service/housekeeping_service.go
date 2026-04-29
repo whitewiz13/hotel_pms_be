@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
@@ -10,18 +11,20 @@ import (
 )
 
 type HousekeepingService struct {
-	db                *gorm.DB
-	housekeepingRepo  *repository.HousekeepingRepository
-	roomRepo          *repository.RoomRepository
-	userRepo          *repository.UserRepository
+	db                  *gorm.DB
+	housekeepingRepo     *repository.HousekeepingRepository
+	roomRepo            *repository.RoomRepository
+	userRepo            *repository.UserRepository
+	notificationService *NotificationService
 }
 
-func NewHousekeepingService(db *gorm.DB, housekeepingRepo *repository.HousekeepingRepository, roomRepo *repository.RoomRepository, userRepo *repository.UserRepository) *HousekeepingService {
+func NewHousekeepingService(db *gorm.DB, housekeepingRepo *repository.HousekeepingRepository, roomRepo *repository.RoomRepository, userRepo *repository.UserRepository, notificationService *NotificationService) *HousekeepingService {
 	return &HousekeepingService{
-		db:               db,
-		housekeepingRepo: housekeepingRepo,
-		roomRepo:         roomRepo,
-		userRepo:         userRepo,
+		db:                  db,
+		housekeepingRepo:     housekeepingRepo,
+		roomRepo:            roomRepo,
+		userRepo:            userRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -79,6 +82,20 @@ func (s *HousekeepingService) Assign(hotelID, assignedByID string, req dto.Assig
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Notify the assigned housekeeper
+	if s.notificationService != nil && req.AssignedToID != nil {
+		go s.notificationService.SendToUser(
+			*req.AssignedToID,
+			"Housekeeping Task Assigned",
+			fmt.Sprintf("Room %s — %s priority", room.RoomNumber, req.Priority),
+			map[string]string{
+				"type":    "housekeeping_assigned",
+				"task_id": task.ID.String(),
+				"hotel_id": hotelID,
+			},
+		)
 	}
 
 	return s.housekeepingRepo.FindByID(task.ID.String())
@@ -153,6 +170,22 @@ func (s *HousekeepingService) Complete(id, hotelID, userID string, req dto.Updat
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Notify front-desk that room is clean and available
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"Room Cleaned",
+			fmt.Sprintf("Room %s is now available", task.Room.RoomNumber),
+			map[string]string{
+				"type":    "housekeeping_completed",
+				"task_id": id,
+				"room_id": task.RoomID,
+				"hotel_id": hotelID,
+			},
+			"housekeeping:read", "rooms:read",
+		)
 	}
 
 	return s.housekeepingRepo.FindByID(id)
