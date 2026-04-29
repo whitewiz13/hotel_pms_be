@@ -31,6 +31,7 @@ type Handlers struct {
 	Role          *handler.RoleHandler
 	Analytics     *handler.AnalyticsHandler
 	Upload        *handler.UploadHandler
+	FCMToken      *handler.FCMTokenHandler
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository, uploadDir string) *gin.Engine {
@@ -74,6 +75,10 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 		{
 			// Current user info with live permissions
 			protected.GET("/auth/me", handlers.Auth.Me)
+
+			// FCM device tokens
+			protected.POST("/fcm-tokens", handlers.FCMToken.SaveToken)
+			protected.DELETE("/fcm-tokens", handlers.FCMToken.DeleteToken)
 
 			// Super admin: hotel management
 			hotels := protected.Group("/hotels")

@@ -293,6 +293,19 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260429_013_fcm_tokens",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(&models.FCMToken{}); err != nil {
+					return err
+				}
+
+				db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_fcm_tokens_user_device ON fcm_tokens(user_id, device_token) WHERE deleted_at IS NULL`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_fcm_tokens_hotel ON fcm_tokens(hotel_id)`)
+
+				return nil
+			},
+		},
 	}
 }
 

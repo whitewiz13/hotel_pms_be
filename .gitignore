@@ -8,6 +8,9 @@
 # Environment
 .env
 
+# Firebase credentials
+*firebase-adminsdk*.json
+
 # IDE
 .idea/
 .vscode/

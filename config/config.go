@@ -13,6 +13,7 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	Upload   UploadConfig
+	Firebase FirebaseConfig
 }
 
 type ServerConfig struct {
@@ -39,6 +40,10 @@ type JWTConfig struct {
 type UploadConfig struct {
 	Dir     string // local directory for file uploads
 	BaseURL string // public base URL for serving uploaded files
+}
+
+type FirebaseConfig struct {
+	CredentialsFile string // path to Firebase service account JSON (optional; falls back to GOOGLE_APPLICATION_CREDENTIALS)
 }
 
 func (d *DatabaseConfig) DSN() string {
@@ -76,6 +81,9 @@ func Load() (*Config, error) {
 		Upload: UploadConfig{
 			Dir:     getEnv("UPLOAD_DIR", "./uploads"),
 			BaseURL: getEnv("UPLOAD_BASE_URL", "http://localhost:8080"),
+		},
+		Firebase: FirebaseConfig{
+			CredentialsFile: getEnv("FIREBASE_CREDENTIALS_FILE", "./hotel-pms-b17e6-firebase-adminsdk-fbsvc-e26d2218d8.json"),
 		},
 	}
 

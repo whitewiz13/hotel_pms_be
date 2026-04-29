@@ -61,6 +61,10 @@ func main() {
 	guestSettingsRepo := repository.NewGuestSettingsRepository(db)
 	permissionRepo := repository.NewPermissionRepository(db)
 	roleRepo := repository.NewRoleRepository(db)
+	fcmTokenRepo := repository.NewFCMTokenRepository(db)
+
+	// Initialize notification service
+	notificationService := service.NewNotificationService(cfg.Firebase.CredentialsFile, fcmTokenRepo)
 
 	// Initialize services
 	roleService := service.NewRoleService(roleRepo, permissionRepo)
@@ -75,7 +79,7 @@ func main() {
 	dashboardService := service.NewDashboardService(dashboardRepo)
 	analyticsService := service.NewAnalyticsService(analyticsRepo)
 	menuService := service.NewMenuService(menuRepo)
-	orderService := service.NewOrderService(db, orderRepo, menuRepo, roomRepo, reservationRepo, userRepo)
+	orderService := service.NewOrderService(db, orderRepo, menuRepo, roomRepo, reservationRepo, userRepo, notificationService)
 	activityService := service.NewActivityService(activityRepo, roomRepo, reservationRepo)
 	billService := service.NewBillService(db, billRepo, reservationRepo, orderRepo, activityRepo, roomRepo)
 	guestService := service.NewGuestService(reservationRepo, orderService, activityService, menuService, orderRepo, activityRepo, guestSettingsRepo)
@@ -103,6 +107,7 @@ func main() {
 		GuestSettings: handler.NewGuestSettingsHandler(guestSettingsService),
 		Role:          handler.NewRoleHandler(roleService),
 		Analytics:     handler.NewAnalyticsHandler(analyticsService),
+		FCMToken:      handler.NewFCMTokenHandler(fcmTokenRepo),
 	}
 
 	handlers.Upload = handler.NewUploadHandler(uploadService)

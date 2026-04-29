@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
@@ -10,12 +11,13 @@ import (
 )
 
 type OrderService struct {
-	db              *gorm.DB
-	orderRepo       *repository.OrderRepository
-	menuRepo        *repository.MenuRepository
-	roomRepo        *repository.RoomRepository
-	reservationRepo *repository.ReservationRepository
-	userRepo        *repository.UserRepository
+	db                  *gorm.DB
+	orderRepo           *repository.OrderRepository
+	menuRepo            *repository.MenuRepository
+	roomRepo            *repository.RoomRepository
+	reservationRepo     *repository.ReservationRepository
+	userRepo            *repository.UserRepository
+	notificationService *NotificationService
 }
 
 func NewOrderService(
@@ -25,14 +27,16 @@ func NewOrderService(
 	roomRepo *repository.RoomRepository,
 	reservationRepo *repository.ReservationRepository,
 	userRepo *repository.UserRepository,
+	notificationService *NotificationService,
 ) *OrderService {
 	return &OrderService{
-		db:              db,
-		orderRepo:       orderRepo,
-		menuRepo:        menuRepo,
-		roomRepo:        roomRepo,
-		reservationRepo: reservationRepo,
-		userRepo:        userRepo,
+		db:                  db,
+		orderRepo:           orderRepo,
+		menuRepo:            menuRepo,
+		roomRepo:            roomRepo,
+		reservationRepo:     reservationRepo,
+		userRepo:            userRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -94,6 +98,21 @@ func (s *OrderService) Create(hotelID string, req dto.CreateOrderRequest) (*mode
 
 	if err := s.orderRepo.Create(order); err != nil {
 		return nil, errors.New("failed to create order")
+	}
+
+	// Notify hotel staff about the new order
+	if s.notificationService != nil {
+		go s.notificationService.SendToHotelStaff(
+			hotelID,
+			"New Room Service Order",
+			fmt.Sprintf("Order from %s — Room %s", req.GuestName, room.RoomNumber),
+			map[string]string{
+				"type":     "new_order",
+				"order_id": order.ID.String(),
+				"hotel_id": hotelID,
+			},
+			"orders:read", "orders:update_status",
+		)
 	}
 
 	return s.orderRepo.FindByID(order.ID.String())
