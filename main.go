@@ -81,6 +81,9 @@ func main() {
 	guestService := service.NewGuestService(reservationRepo, orderService, activityService, menuService, orderRepo, activityRepo, guestSettingsRepo)
 	guestSettingsService := service.NewGuestSettingsService(guestSettingsRepo)
 
+	// Initialize upload service
+	uploadService := service.NewUploadService(cfg.Upload.Dir, cfg.Upload.BaseURL)
+
 	// Initialize handlers
 	handlers := &router.Handlers{
 		Auth:          handler.NewAuthHandler(authService),
@@ -102,8 +105,10 @@ func main() {
 		Analytics:     handler.NewAnalyticsHandler(analyticsService),
 	}
 
+	handlers.Upload = handler.NewUploadHandler(uploadService)
+
 	// Setup router
-	r := router.Setup(handlers, authService, roleRepo)
+	r := router.Setup(handlers, authService, roleRepo, cfg.Upload.Dir)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)

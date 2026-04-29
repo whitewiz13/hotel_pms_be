@@ -84,6 +84,7 @@ func (s *ReservationService) Create(hotelID string, req dto.CreateReservationReq
 		RoomID:       req.RoomID,
 		GuestName:    req.GuestName,
 		GuestPhone:   req.GuestPhone,
+		GuestEmail:   req.GuestEmail,
 		CheckInDate:  checkIn,
 		CheckOutDate: checkOut,
 		Status:       models.ReservationStatusReserved,
@@ -184,7 +185,8 @@ func (s *ReservationService) List(hotelID string, query dto.ListReservationsQuer
 
 // CheckIn transitions a reservation from reserved → checked_in.
 // Generates an access PIN for the guest and sets it on the room.
-func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, string, error) {
+// Optionally updates guest email and identity document details.
+func (s *ReservationService) CheckIn(id, hotelID string, req dto.CheckInRequest) (*models.Reservation, string, error) {
 	reservation, err := s.reservationRepo.FindByIDAndHotel(id, hotelID)
 	if err != nil {
 		return nil, "", errors.New("reservation not found")
@@ -207,6 +209,10 @@ func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, s
 	}
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// Update guest_email on reservation if provided at check-in
+		if req.GuestEmail != nil && *req.GuestEmail != "" {
+			reservation.GuestEmail = *req.GuestEmail
+		}
 		reservation.Status = models.ReservationStatusCheckedIn
 		if err := tx.Save(reservation).Error; err != nil {
 			return errors.New("failed to check in")
@@ -219,6 +225,27 @@ func (s *ReservationService) CheckIn(id, hotelID string) (*models.Reservation, s
 				"access_pin": pin,
 			}).Error; err != nil {
 			return errors.New("failed to update room status")
+		}
+
+		// Update guest email and identity details if provided
+		guestUpdates := map[string]interface{}{}
+		if req.GuestEmail != nil && *req.GuestEmail != "" {
+			guestUpdates["email"] = *req.GuestEmail
+		}
+		if req.IDType != nil && *req.IDType != "" {
+			guestUpdates["id_type"] = *req.IDType
+		}
+		if req.IDNumber != nil && *req.IDNumber != "" {
+			guestUpdates["id_number"] = *req.IDNumber
+		}
+		if req.IDDocumentURL != nil && *req.IDDocumentURL != "" {
+			guestUpdates["id_document_url"] = *req.IDDocumentURL
+		}
+		if len(guestUpdates) > 0 {
+			if err := tx.Model(&models.Guest{}).Where("id = ?", reservation.GuestID).
+				Updates(guestUpdates).Error; err != nil {
+				return errors.New("failed to update guest details")
+			}
 		}
 
 		return nil

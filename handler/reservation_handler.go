@@ -96,7 +96,11 @@ func (h *ReservationHandler) CheckIn(c *gin.Context) {
 	hotelID := c.Param("hotel_id")
 	id := c.Param("id")
 
-	reservation, pin, err := h.reservationService.CheckIn(id, hotelID)
+	var req dto.CheckInRequest
+	// Body is optional — allow empty body for backward compatibility
+	_ = c.ShouldBindJSON(&req)
+
+	reservation, pin, err := h.reservationService.CheckIn(id, hotelID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return

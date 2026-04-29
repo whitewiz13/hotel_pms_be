@@ -22,6 +22,7 @@ type Reservation struct {
 	GuestID      string            `gorm:"type:uuid;not null;index" json:"guest_id"`
 	GuestName    string            `gorm:"not null;size:255" json:"guest_name"`
 	GuestPhone   string            `gorm:"size:20" json:"guest_phone"`
+	GuestEmail   string            `gorm:"size:255" json:"guest_email"`
 	CheckInDate  time.Time         `gorm:"type:date;not null;index" json:"check_in_date"`
 	CheckOutDate time.Time         `gorm:"type:date;not null" json:"check_out_date"`
 	Status       ReservationStatus `gorm:"type:varchar(20);not null;default:'reserved'" json:"status"`

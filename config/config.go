@@ -12,6 +12,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	JWT      JWTConfig
+	Upload   UploadConfig
 }
 
 type ServerConfig struct {
@@ -33,6 +34,11 @@ type JWTConfig struct {
 	Secret           string
 	ExpiryHours      int
 	GuestExpiryHours int
+}
+
+type UploadConfig struct {
+	Dir     string // local directory for file uploads
+	BaseURL string // public base URL for serving uploaded files
 }
 
 func (d *DatabaseConfig) DSN() string {
@@ -66,6 +72,10 @@ func Load() (*Config, error) {
 			Secret:           getEnv("JWT_SECRET", ""),
 			ExpiryHours:      jwtExpiry,
 			GuestExpiryHours: guestExpiry,
+		},
+		Upload: UploadConfig{
+			Dir:     getEnv("UPLOAD_DIR", "./uploads"),
+			BaseURL: getEnv("UPLOAD_BASE_URL", "http://localhost:8080"),
 		},
 	}
 

@@ -30,10 +30,14 @@ type Handlers struct {
 	GuestSettings *handler.GuestSettingsHandler
 	Role          *handler.RoleHandler
 	Analytics     *handler.AnalyticsHandler
+	Upload        *handler.UploadHandler
 }
 
-func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository) *gin.Engine {
+func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository, uploadDir string) *gin.Engine {
 	r := gin.Default()
+
+	// Serve uploaded files
+	r.Static("/uploads", uploadDir)
 
 	// Shorthand for permission middleware
 	perm := func(permissions ...string) gin.HandlerFunc {
@@ -182,6 +186,9 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 				// Guest Settings
 				hotel.POST("/guest-settings", perm("guest_settings:update"), handlers.GuestSettings.Save)
 				hotel.GET("/guest-settings", perm("guest_settings:read"), handlers.GuestSettings.Get)
+
+				// File Uploads
+				hotel.POST("/uploads", perm("reservations:check_in"), handlers.Upload.Upload)
 
 				// Roles & Permissions
 				hotel.GET("/permissions", perm("roles:read"), handlers.Role.GetPermissions)

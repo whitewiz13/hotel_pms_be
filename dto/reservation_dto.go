@@ -21,6 +21,13 @@ type ListReservationsQuery struct {
 	PerPage      int    `form:"per_page"`
 }
 
+type CheckInRequest struct {
+	GuestEmail    *string `json:"guest_email" binding:"omitempty,email"`
+	IDType        *string `json:"id_type" binding:"omitempty,oneof=aadhaar pan passport driving_license voter_id"`
+	IDNumber      *string `json:"id_number"`
+	IDDocumentURL *string `json:"id_document_url"`
+}
+
 type AvailabilityQuery struct {
 	CheckInDate  string `form:"check_in" binding:"required"`  // YYYY-MM-DD
 	CheckOutDate string `form:"check_out" binding:"required"` // YYYY-MM-DD

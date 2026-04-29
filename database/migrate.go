@@ -277,6 +277,22 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260429_012_guest_identity",
+			Apply: func(db *gorm.DB) error {
+				db.Exec(`ALTER TABLE guests ADD COLUMN IF NOT EXISTS id_type VARCHAR(30)`)
+				db.Exec(`ALTER TABLE guests ADD COLUMN IF NOT EXISTS id_number VARCHAR(50)`)
+				db.Exec(`ALTER TABLE guests ADD COLUMN IF NOT EXISTS id_document_url VARCHAR(500)`)
+
+				// Denormalize guest_email on reservations
+				db.Exec(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS guest_email VARCHAR(255)`)
+
+				// Backfill existing reservations from guest records
+				db.Exec(`UPDATE reservations r SET guest_email = g.email FROM guests g WHERE r.guest_id = g.id AND r.guest_email IS NULL AND g.email != ''`)
+
+				return nil
+			},
+		},
 	}
 }
 
