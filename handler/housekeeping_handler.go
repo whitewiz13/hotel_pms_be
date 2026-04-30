@@ -6,16 +6,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/middleware"
+	"github.com/hotelpms/backend/repository"
 	"github.com/hotelpms/backend/service"
 	"github.com/hotelpms/backend/utils"
 )
 
 type HousekeepingHandler struct {
 	housekeepingService *service.HousekeepingService
+	roleRepo            *repository.RoleRepository
 }
 
-func NewHousekeepingHandler(housekeepingService *service.HousekeepingService) *HousekeepingHandler {
-	return &HousekeepingHandler{housekeepingService: housekeepingService}
+func NewHousekeepingHandler(housekeepingService *service.HousekeepingService, roleRepo *repository.RoleRepository) *HousekeepingHandler {
+	return &HousekeepingHandler{housekeepingService: housekeepingService, roleRepo: roleRepo}
 }
 
 // Assign creates a new housekeeping task and sets the room to "cleaning".
@@ -89,6 +91,7 @@ func (h *HousekeepingHandler) GetByID(c *gin.Context) {
 // List returns housekeeping tasks ordered by priority.
 func (h *HousekeepingHandler) List(c *gin.Context) {
 	hotelID := c.Param("hotel_id")
+	claims := middleware.GetClaims(c)
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
@@ -100,6 +103,11 @@ func (h *HousekeepingHandler) List(c *gin.Context) {
 		Priority:     c.Query("priority"),
 		Page:         page,
 		PerPage:      perPage,
+	}
+
+	// Users without housekeeping:assign only see tasks assigned to them
+	if !middleware.HasPermission(c, h.roleRepo, "housekeeping:assign") {
+		query.AssignedToID = claims.UserID
 	}
 
 	tasks, total, err := h.housekeepingService.List(hotelID, query)

@@ -81,6 +81,10 @@ func (r *OrderRepository) Update(order *models.Order) error {
 	return r.db.Save(order).Error
 }
 
+func (r *OrderRepository) UpdateAssignedTo(orderID, assignedToID string) error {
+	return r.db.Model(&models.Order{}).Where("id = ?", orderID).Update("assigned_to_id", assignedToID).Error
+}
+
 // CountByReservationGroupedByStatus returns order counts per status for a reservation.
 func (r *OrderRepository) CountByReservationGroupedByStatus(reservationID string) (map[string]int64, error) {
 	type result struct {

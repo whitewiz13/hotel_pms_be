@@ -145,3 +145,28 @@ func RequirePermission(roleRepo *repository.RoleRepository, permissions ...strin
 		c.Abort()
 	}
 }
+
+// HasPermission checks if the current user has the given permission.
+// Super admins and hotel admins always return true.
+func HasPermission(c *gin.Context, roleRepo *repository.RoleRepository, permission string) bool {
+	claims := GetClaims(c)
+	if claims == nil {
+		return false
+	}
+	if claims.Role == models.RoleSuperAdmin || claims.Role == models.RoleHotelAdmin {
+		return true
+	}
+	if claims.RoleID == "" {
+		return false
+	}
+	codes, err := roleRepo.GetPermissionCodes(claims.RoleID)
+	if err != nil {
+		return false
+	}
+	for _, code := range codes {
+		if code == permission {
+			return true
+		}
+	}
+	return false
+}

@@ -5,16 +5,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hotelpms/backend/dto"
+	"github.com/hotelpms/backend/middleware"
+	"github.com/hotelpms/backend/repository"
 	"github.com/hotelpms/backend/service"
 	"github.com/hotelpms/backend/utils"
 )
 
 type OrderHandler struct {
 	orderService *service.OrderService
+	roleRepo     *repository.RoleRepository
 }
 
-func NewOrderHandler(orderService *service.OrderService) *OrderHandler {
-	return &OrderHandler{orderService: orderService}
+func NewOrderHandler(orderService *service.OrderService, roleRepo *repository.RoleRepository) *OrderHandler {
+	return &OrderHandler{orderService: orderService, roleRepo: roleRepo}
 }
 
 func (h *OrderHandler) Create(c *gin.Context) {
@@ -50,6 +53,7 @@ func (h *OrderHandler) GetByID(c *gin.Context) {
 
 func (h *OrderHandler) List(c *gin.Context) {
 	hotelID := c.Param("hotel_id")
+	claims := middleware.GetClaims(c)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
 
@@ -60,6 +64,11 @@ func (h *OrderHandler) List(c *gin.Context) {
 		AssignedToID:  c.Query("assigned_to_id"),
 		Page:          page,
 		PerPage:       perPage,
+	}
+
+	// Users without orders:assign only see orders assigned to them
+	if !middleware.HasPermission(c, h.roleRepo, "orders:assign") {
+		query.AssignedToID = claims.UserID
 	}
 
 	orders, total, err := h.orderService.List(hotelID, query)

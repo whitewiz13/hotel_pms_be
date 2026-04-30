@@ -247,7 +247,7 @@ func (s *OrderService) Assign(id, hotelID string, req dto.AssignOrderRequest) (*
 	}
 
 	order.AssignedToID = &req.AssignedToID
-	if err := s.orderRepo.Update(order); err != nil {
+	if err := s.orderRepo.UpdateAssignedTo(order.ID.String(), req.AssignedToID); err != nil {
 		return nil, errors.New("failed to assign order")
 	}
 
