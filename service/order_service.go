@@ -96,6 +96,15 @@ func (s *OrderService) Create(hotelID string, req dto.CreateOrderRequest) (*mode
 		Items:         orderItems,
 	}
 
+	if req.AssignedToID != "" {
+		// Verify the assigned user belongs to the hotel
+		assignedUser, err := s.userRepo.FindByIDAndHotel(req.AssignedToID, hotelID)
+		if err != nil || assignedUser == nil {
+			return nil, errors.New("assigned staff member not found")
+		}
+		order.AssignedToID = &req.AssignedToID
+	}
+
 	if err := s.orderRepo.Create(order); err != nil {
 		return nil, errors.New("failed to create order")
 	}
@@ -113,6 +122,20 @@ func (s *OrderService) Create(hotelID string, req dto.CreateOrderRequest) (*mode
 			},
 			"orders:read", "orders:update_status",
 		)
+
+		// Notify the assigned staff member
+		if req.AssignedToID != "" {
+			go s.notificationService.SendToUser(
+				req.AssignedToID,
+				"Order Assigned to You",
+				fmt.Sprintf("Order for %s — Room %s", req.GuestName, room.RoomNumber),
+				map[string]string{
+					"type":     "order_assigned",
+					"order_id": order.ID.String(),
+					"hotel_id": hotelID,
+				},
+			)
+		}
 	}
 
 	return s.orderRepo.FindByID(order.ID.String())
@@ -174,16 +197,31 @@ func (s *OrderService) UpdateStatus(id, hotelID string, req dto.UpdateOrderStatu
 	if s.notificationService != nil {
 		title := fmt.Sprintf("Order %s", string(newStatus))
 		body := fmt.Sprintf("Order for %s — Room %s is now %s", order.GuestName, order.Room.RoomNumber, string(newStatus))
-		go s.notificationService.SendToHotelStaff(
-			hotelID, title, body,
-			map[string]string{
-				"type":     "order_status_update",
-				"order_id": id,
-				"status":   string(newStatus),
-				"hotel_id": hotelID,
-			},
-			"orders:read", "orders:update_status",
-		)
+
+		if newStatus == models.OrderStatusReady {
+			// Notify front desk/admin so they can reassign for delivery
+			go s.notificationService.SendToHotelStaff(
+				hotelID, title, body,
+				map[string]string{
+					"type":     "order_ready_for_assignment",
+					"order_id": id,
+					"status":   string(newStatus),
+					"hotel_id": hotelID,
+				},
+				"orders:assign",
+			)
+		} else {
+			go s.notificationService.SendToHotelStaff(
+				hotelID, title, body,
+				map[string]string{
+					"type":     "order_status_update",
+					"order_id": id,
+					"status":   string(newStatus),
+					"hotel_id": hotelID,
+				},
+				"orders:read", "orders:update_status",
+			)
+		}
 	}
 
 	return order, nil

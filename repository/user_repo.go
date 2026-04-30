@@ -26,6 +26,15 @@ func (r *UserRepository) FindByID(id string) (*models.User, error) {
 	return &user, nil
 }
 
+func (r *UserRepository) FindByIDAndHotel(id, hotelID string) (*models.User, error) {
+	var user models.User
+	err := r.db.Where("id = ? AND hotel_id = ?", id, hotelID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("email = ?", email).First(&user).Error

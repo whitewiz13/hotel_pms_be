@@ -13,6 +13,7 @@ type CreateOrderRequest struct {
 	GuestID       string             `json:"guest_id"`
 	Items         []OrderItemRequest `json:"items" binding:"required,min=1,dive"`
 	Notes         string             `json:"notes"`
+	AssignedToID  string             `json:"assigned_to_id" binding:"omitempty,uuid"`
 }
 
 type UpdateOrderStatusRequest struct {
