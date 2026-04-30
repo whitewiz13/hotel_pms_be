@@ -12,16 +12,23 @@ import (
 type RoomService struct {
 	roomRepo    *repository.RoomRepository
 	amenityRepo *repository.AmenityRepository
+	planService *PlanService
 }
 
-func NewRoomService(roomRepo *repository.RoomRepository, amenityRepo *repository.AmenityRepository) *RoomService {
+func NewRoomService(roomRepo *repository.RoomRepository, amenityRepo *repository.AmenityRepository, planService *PlanService) *RoomService {
 	return &RoomService{
 		roomRepo:    roomRepo,
 		amenityRepo: amenityRepo,
+		planService: planService,
 	}
 }
 
 func (s *RoomService) Create(hotelID string, req dto.CreateRoomRequest) (*models.Room, error) {
+	// Check plan room limit
+	if err := s.planService.CheckRoomLimit(hotelID); err != nil {
+		return nil, err
+	}
+
 	room := &models.Room{
 		HotelID:       hotelID,
 		RoomNumber:    req.RoomNumber,

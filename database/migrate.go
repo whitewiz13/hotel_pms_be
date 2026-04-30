@@ -306,6 +306,82 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260430_014_plans_subscriptions",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(&models.Plan{}, &models.Subscription{}); err != nil {
+					return err
+				}
+
+				// Seed the three plans
+				plans := []models.Plan{
+					{
+						ID:                   models.PlanFree,
+						Name:                 "Free",
+						MaxRooms:             5,
+						MaxStaff:             3,
+						MaxReservationsMonth: 20,
+						MaxStorageMB:         50,
+						FeatureRoomService:   false,
+						FeatureActivities:    false,
+						FeatureGuestPortal:   false,
+						FeatureNotifications: false,
+						FeatureAnalytics:     false,
+						FeatureAdvAnalytics:  false,
+						FeatureCustomRoles:   false,
+						FeatureGuestUploads:  false,
+					},
+					{
+						ID:                   models.PlanBasic,
+						Name:                 "Basic",
+						MaxRooms:             25,
+						MaxStaff:             10,
+						MaxReservationsMonth: 200,
+						MaxStorageMB:         500,
+						FeatureRoomService:   true,
+						FeatureActivities:    true,
+						FeatureGuestPortal:   false,
+						FeatureNotifications: true,
+						FeatureAnalytics:     true,
+						FeatureAdvAnalytics:  false,
+						FeatureCustomRoles:   false,
+						FeatureGuestUploads:  true,
+					},
+					{
+						ID:                   models.PlanPro,
+						Name:                 "Pro",
+						MaxRooms:             -1,
+						MaxStaff:             -1,
+						MaxReservationsMonth: -1,
+						MaxStorageMB:         5120,
+						FeatureRoomService:   true,
+						FeatureActivities:    true,
+						FeatureGuestPortal:   true,
+						FeatureNotifications: true,
+						FeatureAnalytics:     true,
+						FeatureAdvAnalytics:  true,
+						FeatureCustomRoles:   true,
+						FeatureGuestUploads:  true,
+					},
+				}
+
+				for _, p := range plans {
+					db.Exec(`INSERT INTO plans (id, name, max_rooms, max_staff, max_reservations_month, max_storage_mb, feature_room_service, feature_activities, feature_guest_portal, feature_notifications, feature_analytics, feature_adv_analytics, feature_custom_roles, feature_guest_uploads) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`,
+						p.ID, p.Name, p.MaxRooms, p.MaxStaff, p.MaxReservationsMonth, p.MaxStorageMB,
+						p.FeatureRoomService, p.FeatureActivities, p.FeatureGuestPortal, p.FeatureNotifications,
+						p.FeatureAnalytics, p.FeatureAdvAnalytics, p.FeatureCustomRoles, p.FeatureGuestUploads)
+				}
+
+				// Assign "free" plan to all existing hotels that don't have a subscription
+				var hotels []models.Hotel
+				db.Find(&hotels)
+				for _, h := range hotels {
+					db.Exec(`INSERT INTO subscriptions (id, hotel_id, plan_id, status, created_at, updated_at) VALUES (gen_random_uuid(), ?, ?, 'active', NOW(), NOW()) ON CONFLICT (hotel_id) DO NOTHING`, h.ID, models.PlanFree)
+				}
+
+				return nil
+			},
+		},
 	}
 }
 

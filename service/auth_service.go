@@ -13,11 +13,12 @@ import (
 )
 
 type AuthService struct {
-	userRepo  *repository.UserRepository
-	roomRepo  *repository.RoomRepository
-	hotelRepo *repository.HotelRepository
-	roleRepo  *repository.RoleRepository
-	jwtCfg    config.JWTConfig
+	userRepo    *repository.UserRepository
+	roomRepo    *repository.RoomRepository
+	hotelRepo   *repository.HotelRepository
+	roleRepo    *repository.RoleRepository
+	planService *PlanService
+	jwtCfg      config.JWTConfig
 }
 
 type JWTClaims struct {
@@ -33,13 +34,14 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, hotelRepo *repository.HotelRepository, roleRepo *repository.RoleRepository, jwtCfg config.JWTConfig) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, hotelRepo *repository.HotelRepository, roleRepo *repository.RoleRepository, planService *PlanService, jwtCfg config.JWTConfig) *AuthService {
 	return &AuthService{
-		userRepo:  userRepo,
-		roomRepo:  roomRepo,
-		hotelRepo: hotelRepo,
-		roleRepo:  roleRepo,
-		jwtCfg:    jwtCfg,
+		userRepo:    userRepo,
+		roomRepo:    roomRepo,
+		hotelRepo:   hotelRepo,
+		roleRepo:    roleRepo,
+		planService: planService,
+		jwtCfg:      jwtCfg,
 	}
 }
 
@@ -108,6 +110,11 @@ func (s *AuthService) GuestLogin(req dto.GuestLoginRequest) (string, *models.Roo
 }
 
 func (s *AuthService) CreateStaff(hotelID string, req dto.CreateStaffRequest) (*models.User, error) {
+	// Check plan staff limit
+	if err := s.planService.CheckStaffLimit(hotelID); err != nil {
+		return nil, err
+	}
+
 	// Validate role exists and belongs to this hotel
 	role, err := s.roleRepo.FindByID(req.RoleID)
 	if err != nil {

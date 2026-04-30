@@ -20,10 +20,11 @@ type HotelService struct {
 	userRepo       *repository.UserRepository
 	roleRepo       *repository.RoleRepository
 	permissionRepo *repository.PermissionRepository
+	planRepo       *repository.PlanRepository
 }
 
-func NewHotelService(db *gorm.DB, hotelRepo *repository.HotelRepository, userRepo *repository.UserRepository, roleRepo *repository.RoleRepository, permissionRepo *repository.PermissionRepository) *HotelService {
-	return &HotelService{db: db, hotelRepo: hotelRepo, userRepo: userRepo, roleRepo: roleRepo, permissionRepo: permissionRepo}
+func NewHotelService(db *gorm.DB, hotelRepo *repository.HotelRepository, userRepo *repository.UserRepository, roleRepo *repository.RoleRepository, permissionRepo *repository.PermissionRepository, planRepo *repository.PlanRepository) *HotelService {
+	return &HotelService{db: db, hotelRepo: hotelRepo, userRepo: userRepo, roleRepo: roleRepo, permissionRepo: permissionRepo, planRepo: planRepo}
 }
 
 func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, *models.User, error) {
@@ -107,7 +108,17 @@ func (s *HotelService) Create(req dto.CreateHotelRequest) (*models.Hotel, *model
 			HotelID:      &hotelID,
 			IsActive:     true,
 		}
-		return tx.Create(admin).Error
+		if err := tx.Create(admin).Error; err != nil {
+			return err
+		}
+
+		// Assign free plan
+		sub := &models.Subscription{
+			HotelID: hotelID,
+			PlanID:  models.PlanFree,
+			Status:  models.SubscriptionStatusActive,
+		}
+		return tx.Create(sub).Error
 	})
 
 	if err != nil {

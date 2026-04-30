@@ -62,19 +62,21 @@ func main() {
 	permissionRepo := repository.NewPermissionRepository(db)
 	roleRepo := repository.NewRoleRepository(db)
 	fcmTokenRepo := repository.NewFCMTokenRepository(db)
+	planRepo := repository.NewPlanRepository(db)
 
 	// Initialize notification service
 	notificationService := service.NewNotificationService(cfg.Firebase.CredentialsFile, cfg.Firebase.CredentialsJSON, fcmTokenRepo)
 
 	// Initialize services
+	planService := service.NewPlanService(planRepo)
 	roleService := service.NewRoleService(roleRepo, permissionRepo)
-	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, roleRepo, cfg.JWT)
-	hotelService := service.NewHotelService(db, hotelRepo, userRepo, roleRepo, permissionRepo)
-	roomService := service.NewRoomService(roomRepo, amenityRepo)
+	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, roleRepo, planService, cfg.JWT)
+	hotelService := service.NewHotelService(db, hotelRepo, userRepo, roleRepo, permissionRepo, planRepo)
+	roomService := service.NewRoomService(roomRepo, amenityRepo, planService)
 	roomTypeService := service.NewRoomTypeService(roomTypeRepo)
 	amenityService := service.NewAmenityService(amenityRepo)
 	userService := service.NewUserService(userRepo)
-	reservationService := service.NewReservationService(db, reservationRepo, roomRepo, billRepo, guestRepo, notificationService)
+	reservationService := service.NewReservationService(db, reservationRepo, roomRepo, billRepo, guestRepo, notificationService, planService)
 	housekeepingService := service.NewHousekeepingService(db, housekeepingRepo, roomRepo, userRepo, notificationService)
 	dashboardService := service.NewDashboardService(dashboardRepo)
 	analyticsService := service.NewAnalyticsService(analyticsRepo)
@@ -111,9 +113,10 @@ func main() {
 	}
 
 	handlers.Upload = handler.NewUploadHandler(uploadService)
+	handlers.Plan = handler.NewPlanHandler(planService)
 
 	// Setup router
-	r := router.Setup(handlers, authService, roleRepo, cfg.Upload.Dir)
+	r := router.Setup(handlers, authService, roleRepo, planService, cfg.Upload.Dir)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)

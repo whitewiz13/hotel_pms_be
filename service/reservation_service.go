@@ -21,9 +21,10 @@ type ReservationService struct {
 	billRepo            *repository.BillRepository
 	guestRepo           *repository.GuestRepository
 	notificationService *NotificationService
+	planService         *PlanService
 }
 
-func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository, billRepo *repository.BillRepository, guestRepo *repository.GuestRepository, notificationService *NotificationService) *ReservationService {
+func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationRepository, roomRepo *repository.RoomRepository, billRepo *repository.BillRepository, guestRepo *repository.GuestRepository, notificationService *NotificationService, planService *PlanService) *ReservationService {
 	return &ReservationService{
 		db:                  db,
 		reservationRepo:     reservationRepo,
@@ -31,6 +32,7 @@ func NewReservationService(db *gorm.DB, reservationRepo *repository.ReservationR
 		billRepo:            billRepo,
 		guestRepo:           guestRepo,
 		notificationService: notificationService,
+		planService:         planService,
 	}
 }
 
@@ -54,6 +56,11 @@ func (s *ReservationService) GetAvailability(hotelID string, query dto.Availabil
 
 // Create creates a new reservation with inventory locking to prevent double booking.
 func (s *ReservationService) Create(hotelID string, req dto.CreateReservationRequest) (*models.Reservation, error) {
+	// Check plan reservation limit
+	if err := s.planService.CheckReservationLimit(hotelID); err != nil {
+		return nil, err
+	}
+
 	checkIn, err := time.Parse(dateLayout, req.CheckInDate)
 	if err != nil {
 		return nil, errors.New("invalid check_in_date format, use YYYY-MM-DD")

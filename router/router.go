@@ -32,9 +32,10 @@ type Handlers struct {
 	Analytics     *handler.AnalyticsHandler
 	Upload        *handler.UploadHandler
 	FCMToken      *handler.FCMTokenHandler
+	Plan          *handler.PlanHandler
 }
 
-func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository, uploadDir string) *gin.Engine {
+func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository, planService *service.PlanService, uploadDir string) *gin.Engine {
 	r := gin.Default()
 
 	// Serve uploaded files
@@ -80,6 +81,9 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 			protected.POST("/fcm-tokens", handlers.FCMToken.SaveToken)
 			protected.DELETE("/fcm-tokens", handlers.FCMToken.DeleteToken)
 
+				// Plans (public list)
+			protected.GET("/plans", handlers.Plan.GetAllPlans)
+
 			// Super admin: hotel management
 			hotels := protected.Group("/hotels")
 			{
@@ -96,6 +100,11 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 				hotel.GET("", handlers.Hotel.GetByID)
 				hotel.PUT("", perm("hotels:update"), handlers.Hotel.Update)
 				hotel.DELETE("", middleware.RequireSuperAdmin(), handlers.Hotel.Delete)
+
+				// Subscription management
+				hotel.GET("/subscription", handlers.Plan.GetHotelSubscription)
+				hotel.PUT("/subscription", middleware.RequireSuperAdmin(), handlers.Plan.ChangeHotelPlan)
+				hotel.GET("/subscription/usage", handlers.Plan.GetHotelPlanUsage)
 
 				// Staff management
 				hotel.POST("/staff", perm("staff:create"), handlers.Auth.CreateStaff)
@@ -140,32 +149,44 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 				hotel.POST("/housekeeping/:id/start", perm("housekeeping:update"), handlers.Housekeeping.Start)
 				hotel.POST("/housekeeping/:id/complete", perm("housekeeping:update"), handlers.Housekeeping.Complete)
 
-				// Menu (Room Service)
-				hotel.POST("/menu", perm("menu:create"), handlers.Menu.Create)
-				hotel.GET("/menu", perm("menu:read"), handlers.Menu.List)
-				hotel.GET("/menu/:id", perm("menu:read"), handlers.Menu.GetByID)
-				hotel.PUT("/menu/:id", perm("menu:update"), handlers.Menu.Update)
-				hotel.DELETE("/menu/:id", perm("menu:delete"), handlers.Menu.Delete)
+				// Menu (Room Service) — requires room_service feature
+				menu := hotel.Group("", middleware.RequireFeature(planService, "room_service"))
+				{
+					menu.POST("/menu", perm("menu:create"), handlers.Menu.Create)
+					menu.GET("/menu", perm("menu:read"), handlers.Menu.List)
+					menu.GET("/menu/:id", perm("menu:read"), handlers.Menu.GetByID)
+					menu.PUT("/menu/:id", perm("menu:update"), handlers.Menu.Update)
+					menu.DELETE("/menu/:id", perm("menu:delete"), handlers.Menu.Delete)
+				}
 
-				// Orders (Room Service)
-				hotel.POST("/orders", perm("orders:create"), handlers.Order.Create)
-				hotel.GET("/orders", perm("orders:read"), handlers.Order.List)
-				hotel.GET("/orders/:id", perm("orders:read"), handlers.Order.GetByID)
-				hotel.POST("/orders/:id/status", perm("orders:update_status"), handlers.Order.UpdateStatus)
-				hotel.POST("/orders/:id/assign", perm("orders:assign"), handlers.Order.Assign)
+				// Orders (Room Service) — requires room_service feature
+				orders := hotel.Group("", middleware.RequireFeature(planService, "room_service"))
+				{
+					orders.POST("/orders", perm("orders:create"), handlers.Order.Create)
+					orders.GET("/orders", perm("orders:read"), handlers.Order.List)
+					orders.GET("/orders/:id", perm("orders:read"), handlers.Order.GetByID)
+					orders.POST("/orders/:id/status", perm("orders:update_status"), handlers.Order.UpdateStatus)
+					orders.POST("/orders/:id/assign", perm("orders:assign"), handlers.Order.Assign)
+				}
 
-				// Activities
-				hotel.POST("/activities", perm("activities:create"), handlers.Activity.Create)
-				hotel.GET("/activities", perm("activities:read"), handlers.Activity.List)
-				hotel.GET("/activities/:id", perm("activities:read"), handlers.Activity.GetByID)
-				hotel.PUT("/activities/:id", perm("activities:update"), handlers.Activity.Update)
-				hotel.DELETE("/activities/:id", perm("activities:delete"), handlers.Activity.Delete)
+				// Activities — requires activities feature
+				activities := hotel.Group("", middleware.RequireFeature(planService, "activities"))
+				{
+					activities.POST("/activities", perm("activities:create"), handlers.Activity.Create)
+					activities.GET("/activities", perm("activities:read"), handlers.Activity.List)
+					activities.GET("/activities/:id", perm("activities:read"), handlers.Activity.GetByID)
+					activities.PUT("/activities/:id", perm("activities:update"), handlers.Activity.Update)
+					activities.DELETE("/activities/:id", perm("activities:delete"), handlers.Activity.Delete)
+				}
 
-				// Activity Bookings
-				hotel.POST("/activity-bookings", perm("activity_bookings:create"), handlers.Activity.CreateBooking)
-				hotel.GET("/activity-bookings", perm("activity_bookings:read"), handlers.Activity.ListBookings)
-				hotel.GET("/activity-bookings/:id", perm("activity_bookings:read"), handlers.Activity.GetBookingByID)
-				hotel.POST("/activity-bookings/:id/status", perm("activity_bookings:update_status"), handlers.Activity.UpdateBookingStatus)
+				// Activity Bookings — requires activities feature
+				activityBookings := hotel.Group("", middleware.RequireFeature(planService, "activities"))
+				{
+					activityBookings.POST("/activity-bookings", perm("activity_bookings:create"), handlers.Activity.CreateBooking)
+					activityBookings.GET("/activity-bookings", perm("activity_bookings:read"), handlers.Activity.ListBookings)
+					activityBookings.GET("/activity-bookings/:id", perm("activity_bookings:read"), handlers.Activity.GetBookingByID)
+					activityBookings.POST("/activity-bookings/:id/status", perm("activity_bookings:update_status"), handlers.Activity.UpdateBookingStatus)
+				}
 
 				// Billing
 				hotel.POST("/reservations/:id/bill", perm("billing:generate"), handlers.Bill.Generate)
@@ -178,35 +199,37 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 				hotel.GET("/dashboard/stats", perm("dashboard:view"), handlers.Dashboard.GetStats)
 				hotel.GET("/activity", perm("dashboard:view"), handlers.Dashboard.GetActivity)
 
-				// Analytics
-				analytics := hotel.Group("/analytics")
+				// Analytics — requires analytics feature
+				analytics := hotel.Group("/analytics", middleware.RequireFeature(planService, "analytics"))
 				{
 					analytics.GET("/summary", perm("analytics:view"), handlers.Analytics.GetSummary)
-					analytics.GET("/occupancy", perm("analytics:view"), handlers.Analytics.GetOccupancyTrend)
-					analytics.GET("/revenue", perm("analytics:view"), handlers.Analytics.GetRevenueTrend)
-					analytics.GET("/reservations", perm("analytics:view"), handlers.Analytics.GetReservationStats)
-					analytics.GET("/room-types", perm("analytics:view"), handlers.Analytics.GetRoomTypePerformance)
+					analytics.GET("/occupancy", perm("analytics:view"), middleware.RequireFeature(planService, "adv_analytics"), handlers.Analytics.GetOccupancyTrend)
+					analytics.GET("/revenue", perm("analytics:view"), middleware.RequireFeature(planService, "adv_analytics"), handlers.Analytics.GetRevenueTrend)
+					analytics.GET("/reservations", perm("analytics:view"), middleware.RequireFeature(planService, "adv_analytics"), handlers.Analytics.GetReservationStats)
+					analytics.GET("/room-types", perm("analytics:view"), middleware.RequireFeature(planService, "adv_analytics"), handlers.Analytics.GetRoomTypePerformance)
 				}
 
 				// Guest Settings
 				hotel.POST("/guest-settings", perm("guest_settings:update"), handlers.GuestSettings.Save)
 				hotel.GET("/guest-settings", perm("guest_settings:read"), handlers.GuestSettings.Get)
 
-				// File Uploads
-				hotel.POST("/uploads", perm("reservations:check_in"), handlers.Upload.Upload)
+				// File Uploads — requires guest_uploads feature
+				hotel.POST("/uploads", perm("reservations:check_in"), middleware.RequireFeature(planService, "guest_uploads"), handlers.Upload.Upload)
 
 				// Roles & Permissions
 				hotel.GET("/permissions", perm("roles:read"), handlers.Role.GetPermissions)
-				hotel.POST("/roles", perm("roles:create"), handlers.Role.Create)
 				hotel.GET("/roles", perm("roles:read"), handlers.Role.GetAll)
 				hotel.GET("/roles/:id", perm("roles:read"), handlers.Role.GetByID)
-				hotel.PUT("/roles/:id", perm("roles:update"), handlers.Role.Update)
-				hotel.DELETE("/roles/:id", perm("roles:delete"), handlers.Role.Delete)
+				// Custom role management — requires custom_roles feature
+				hotel.POST("/roles", perm("roles:create"), middleware.RequireFeature(planService, "custom_roles"), handlers.Role.Create)
+				hotel.PUT("/roles/:id", perm("roles:update"), middleware.RequireFeature(planService, "custom_roles"), handlers.Role.Update)
+				hotel.DELETE("/roles/:id", perm("roles:delete"), middleware.RequireFeature(planService, "custom_roles"), handlers.Role.Delete)
 			}
 
-			// Guest self-service (authenticated guests only)
+				// Guest self-service (authenticated guests only) — requires guest_portal feature
 			guest := protected.Group("/guest")
 			guest.Use(middleware.RequireRole(models.RoleGuest))
+			guest.Use(middleware.RequireFeature(planService, "guest_portal"))
 			{
 				guest.GET("/reservation", handlers.Guest.GetMyReservation)
 				guest.GET("/menu", handlers.Guest.ListMenu)
