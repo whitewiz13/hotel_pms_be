@@ -36,6 +36,9 @@ func Connect(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 	sqlDB.SetConnMaxIdleTime(1 * time.Minute)
 
+	// Ensure the public schema exists (may be dropped by tools like DBeaver)
+	db.Exec("CREATE SCHEMA IF NOT EXISTS public")
+
 	DB = db
 	log.Println("Database connected successfully")
 	return db, nil
