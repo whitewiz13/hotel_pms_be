@@ -36,7 +36,12 @@ type Handlers struct {
 }
 
 func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repository.RoleRepository, planService *service.PlanService, uploadDir string) *gin.Engine {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+
+	// Rate limiting: 100 requests/sec per IP with burst of 200
+	limiter := middleware.NewRateLimiter(100, 200)
+	r.Use(limiter.RateLimit())
 
 	// Serve uploaded files
 	r.Static("/uploads", uploadDir)
@@ -60,8 +65,10 @@ func Setup(handlers *Handlers, authService *service.AuthService, roleRepo *repos
 			c.JSON(http.StatusOK, gin.H{"status": "ok", "service": "hotel-pms"})
 		})
 
-		// Auth routes (public)
+		// Auth routes (public) — stricter rate limiting
+		authLimiter := middleware.NewRateLimiter(5, 10)
 		auth := api.Group("/auth")
+		auth.Use(authLimiter.RateLimit())
 		{
 			auth.POST("/login", handlers.Auth.Login)
 			auth.POST("/guest/login", handlers.Auth.GuestLogin)

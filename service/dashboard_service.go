@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
@@ -18,29 +19,93 @@ func NewDashboardService(dashboardRepo *repository.DashboardRepository) *Dashboa
 }
 
 func (s *DashboardService) GetStats(hotelID string) (*dto.DashboardStatsResponse, error) {
-	roomsByStatus, totalRooms, err := s.dashboardRepo.CountRoomsByStatus(hotelID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count rooms: %w", err)
+	var (
+		roomsByStatus       map[string]int64
+		totalRooms          int64
+		todayCheckIns       int64
+		todayCheckOuts      int64
+		activeReservations  int64
+		pendingHousekeeping int64
+		mu                  sync.Mutex
+		firstErr            error
+		wg                  sync.WaitGroup
+	)
+
+	setErr := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		mu.Unlock()
 	}
 
-	todayCheckIns, err := s.dashboardRepo.CountTodayCheckIns(hotelID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count today's check-ins: %w", err)
-	}
+	wg.Add(5)
 
-	todayCheckOuts, err := s.dashboardRepo.CountTodayCheckOuts(hotelID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count today's check-outs: %w", err)
-	}
+	go func() {
+		defer wg.Done()
+		r, t, err := s.dashboardRepo.CountRoomsByStatus(hotelID)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count rooms: %w", err))
+			return
+		}
+		mu.Lock()
+		roomsByStatus = r
+		totalRooms = t
+		mu.Unlock()
+	}()
 
-	activeReservations, err := s.dashboardRepo.CountActiveReservations(hotelID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count active reservations: %w", err)
-	}
+	go func() {
+		defer wg.Done()
+		c, err := s.dashboardRepo.CountTodayCheckIns(hotelID)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count today's check-ins: %w", err))
+			return
+		}
+		mu.Lock()
+		todayCheckIns = c
+		mu.Unlock()
+	}()
 
-	pendingHousekeeping, err := s.dashboardRepo.CountPendingHousekeeping(hotelID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count pending housekeeping: %w", err)
+	go func() {
+		defer wg.Done()
+		c, err := s.dashboardRepo.CountTodayCheckOuts(hotelID)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count today's check-outs: %w", err))
+			return
+		}
+		mu.Lock()
+		todayCheckOuts = c
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		c, err := s.dashboardRepo.CountActiveReservations(hotelID)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count active reservations: %w", err))
+			return
+		}
+		mu.Lock()
+		activeReservations = c
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		c, err := s.dashboardRepo.CountPendingHousekeeping(hotelID)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count pending housekeeping: %w", err))
+			return
+		}
+		mu.Lock()
+		pendingHousekeeping = c
+		mu.Unlock()
+	}()
+
+	wg.Wait()
+
+	if firstErr != nil {
+		return nil, firstErr
 	}
 
 	var occupancyRate float64

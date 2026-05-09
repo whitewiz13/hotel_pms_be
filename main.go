@@ -1,10 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hotelpms/backend/cache"
 	"github.com/hotelpms/backend/config"
 	"github.com/hotelpms/backend/database"
 	"github.com/hotelpms/backend/handler"
@@ -43,6 +50,12 @@ func main() {
 		}
 	}
 
+	// Initialize caches
+	permCache := cache.New(2 * time.Minute)    // role permission codes
+	planCache := cache.New(2 * time.Minute)     // hotel plan data
+	hotelCache := cache.New(30 * time.Second)   // hotel access checks
+	analyticsCache := cache.New(5 * time.Minute) // analytics results
+
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	hotelRepo := repository.NewHotelRepository(db)
@@ -60,7 +73,7 @@ func main() {
 	guestRepo := repository.NewGuestRepository(db)
 	guestSettingsRepo := repository.NewGuestSettingsRepository(db)
 	permissionRepo := repository.NewPermissionRepository(db)
-	roleRepo := repository.NewRoleRepository(db)
+	roleRepo := repository.NewRoleRepository(db, permCache)
 	fcmTokenRepo := repository.NewFCMTokenRepository(db)
 	planRepo := repository.NewPlanRepository(db)
 
@@ -68,9 +81,9 @@ func main() {
 	notificationService := service.NewNotificationService(cfg.Firebase.CredentialsFile, cfg.Firebase.CredentialsJSON, fcmTokenRepo)
 
 	// Initialize services
-	planService := service.NewPlanService(db, planRepo, hotelRepo)
+	planService := service.NewPlanService(db, planRepo, hotelRepo, planCache)
 	roleService := service.NewRoleService(roleRepo, permissionRepo)
-	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, roleRepo, planService, cfg.JWT)
+	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, roleRepo, planService, cfg.JWT, hotelCache)
 	hotelService := service.NewHotelService(db, hotelRepo, userRepo, roleRepo, permissionRepo, planRepo)
 	roomService := service.NewRoomService(roomRepo, amenityRepo, planService)
 	roomTypeService := service.NewRoomTypeService(roomTypeRepo)
@@ -79,7 +92,7 @@ func main() {
 	reservationService := service.NewReservationService(db, reservationRepo, roomRepo, billRepo, guestRepo, notificationService, planService)
 	housekeepingService := service.NewHousekeepingService(db, housekeepingRepo, roomRepo, userRepo, notificationService)
 	dashboardService := service.NewDashboardService(dashboardRepo)
-	analyticsService := service.NewAnalyticsService(analyticsRepo)
+	analyticsService := service.NewAnalyticsService(analyticsRepo, analyticsCache)
 	menuService := service.NewMenuService(menuRepo)
 	orderService := service.NewOrderService(db, orderRepo, menuRepo, roomRepo, reservationRepo, userRepo, notificationService)
 	activityService := service.NewActivityService(activityRepo, roomRepo, reservationRepo, notificationService)
@@ -118,10 +131,41 @@ func main() {
 	// Setup router
 	r := router.Setup(handlers, authService, roleRepo, planService, cfg.Upload.Dir)
 
-	// Start server
+	// Start server with timeouts and graceful shutdown
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
-	log.Printf("Hotel PMS backend starting on %s", addr)
-	if err := r.Run(addr); err != nil {
-		log.Fatal("Failed to start server:", err)
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
+
+	go func() {
+		log.Printf("Hotel PMS backend starting on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal("Failed to start server:", err)
+		}
+	}()
+
+	// Wait for interrupt signal, then gracefully shut down
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
+	}
+
+	// Close database connection
+	sqlDB, err := db.DB()
+	if err == nil {
+		sqlDB.Close()
+	}
+
+	log.Println("Server exited gracefully")
 }

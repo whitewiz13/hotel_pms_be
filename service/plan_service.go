@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hotelpms/backend/cache"
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
 	"github.com/hotelpms/backend/repository"
@@ -13,13 +14,14 @@ import (
 )
 
 type PlanService struct {
-	db       *gorm.DB
-	planRepo *repository.PlanRepository
+	db        *gorm.DB
+	planRepo  *repository.PlanRepository
 	hotelRepo *repository.HotelRepository
+	cache     *cache.Cache
 }
 
-func NewPlanService(db *gorm.DB, planRepo *repository.PlanRepository, hotelRepo *repository.HotelRepository) *PlanService {
-	return &PlanService{db: db, planRepo: planRepo, hotelRepo: hotelRepo}
+func NewPlanService(db *gorm.DB, planRepo *repository.PlanRepository, hotelRepo *repository.HotelRepository, cache *cache.Cache) *PlanService {
+	return &PlanService{db: db, planRepo: planRepo, hotelRepo: hotelRepo, cache: cache}
 }
 
 func (s *PlanService) GetAllPlans() ([]models.Plan, error) {
@@ -49,15 +51,29 @@ func (s *PlanService) GetHotelSubscriptionDetails(hotelID string) (*dto.Subscrip
 }
 
 func (s *PlanService) GetHotelPlan(hotelID string) (*models.Plan, error) {
+	cacheKey := "plan:" + hotelID
+	if cached, ok := s.cache.Get(cacheKey); ok {
+		plan := cached.(models.Plan)
+		return &plan, nil
+	}
+
 	sub, err := s.planRepo.FindSubscriptionByHotelID(hotelID)
 	if err != nil {
 		// Default to free plan if no subscription found
-		return s.planRepo.FindByID(models.PlanFree)
+		plan, err := s.planRepo.FindByID(models.PlanFree)
+		if err == nil {
+			s.cache.Set(cacheKey, *plan)
+		}
+		return plan, err
 	}
+
+	s.cache.Set(cacheKey, sub.Plan)
 	return &sub.Plan, nil
 }
 
 func (s *PlanService) ChangeHotelPlan(hotelID, planID string) (*models.Subscription, error) {
+	s.cache.Delete("plan:" + hotelID)
+
 	status := models.SubscriptionStatusActive
 	_, err := s.UpdateHotelSubscription(hotelID, dto.UpdateHotelSubscriptionRequest{
 		PlanID: &planID,
@@ -71,6 +87,8 @@ func (s *PlanService) ChangeHotelPlan(hotelID, planID string) (*models.Subscript
 }
 
 func (s *PlanService) UpdateHotelSubscription(hotelID string, req dto.UpdateHotelSubscriptionRequest) (*dto.SubscriptionResponse, error) {
+	s.cache.Delete("plan:" + hotelID)
+
 	if !req.HasChanges() {
 		return nil, errors.New("at least one subscription field must be provided")
 	}

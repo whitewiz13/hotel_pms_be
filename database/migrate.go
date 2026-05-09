@@ -395,6 +395,15 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260509_016_performance_indexes",
+			Apply: func(db *gorm.DB) error {
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_bills_reservation ON bills(reservation_id)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_reservations_hotel_status ON reservations(hotel_id, status)`)
+				db.Exec(`CREATE INDEX IF NOT EXISTS idx_bills_hotel_created ON bills(hotel_id, created_at)`)
+				return nil
+			},
+		},
 	}
 }
 

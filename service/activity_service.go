@@ -165,7 +165,7 @@ func (s *ActivityService) CreateBooking(hotelID string, req dto.CreateActivityBo
 
 	// Notify hotel staff about the new activity booking
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"New Activity Booking",
 			fmt.Sprintf("%s booked %s — Room %s", req.GuestName, activity.Name, room.RoomNumber),
@@ -231,7 +231,7 @@ func (s *ActivityService) UpdateBookingStatus(id, hotelID string, req dto.Update
 
 	// Notify staff about booking status change
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			fmt.Sprintf("Activity Booking %s", string(newStatus)),
 			fmt.Sprintf("%s's %s booking is now %s", booking.GuestName, booking.Activity.Name, string(newStatus)),

@@ -10,10 +10,20 @@ import (
 	"google.golang.org/api/option"
 )
 
+const notificationWorkers = 50
+
+type notificationJob struct {
+	tokens []string
+	title  string
+	body   string
+	data   map[string]string
+}
+
 // NotificationService sends push notifications via Firebase Cloud Messaging.
 type NotificationService struct {
 	client       *messaging.Client
 	fcmTokenRepo *repository.FCMTokenRepository
+	jobCh        chan notificationJob
 }
 
 // NewNotificationService initialises Firebase and returns the service.
@@ -33,19 +43,39 @@ func NewNotificationService(credentialsFile, credentialsJSON string, fcmTokenRep
 		app, err = firebase.NewApp(ctx, nil)
 	}
 
+	svc := &NotificationService{
+		fcmTokenRepo: fcmTokenRepo,
+		jobCh:        make(chan notificationJob, 500),
+	}
+
 	if err != nil {
 		log.Printf("[FCM] Firebase init failed: %v — notifications disabled", err)
-		return &NotificationService{fcmTokenRepo: fcmTokenRepo}
+		svc.startWorkers()
+		return svc
 	}
 
 	client, err := app.Messaging(ctx)
 	if err != nil {
 		log.Printf("[FCM] Messaging client failed: %v — notifications disabled", err)
-		return &NotificationService{fcmTokenRepo: fcmTokenRepo}
+		svc.startWorkers()
+		return svc
 	}
 
+	svc.client = client
+	svc.startWorkers()
 	log.Println("[FCM] Firebase Cloud Messaging initialised")
-	return &NotificationService{client: client, fcmTokenRepo: fcmTokenRepo}
+	return svc
+}
+
+// startWorkers launches a fixed pool of goroutines to process notification jobs.
+func (s *NotificationService) startWorkers() {
+	for i := 0; i < notificationWorkers; i++ {
+		go func() {
+			for job := range s.jobCh {
+				s.doSend(job.tokens, job.title, job.body, job.data)
+			}
+		}()
+	}
 }
 
 // SendToUser sends a notification to all devices of a specific user.
@@ -64,7 +94,7 @@ func (s *NotificationService) SendToUser(userID, title, body string, data map[st
 		deviceTokens[i] = t.DeviceToken
 	}
 
-	s.sendToTokens(deviceTokens, title, body, data)
+	s.enqueue(deviceTokens, title, body, data)
 }
 
 // SendToHotelStaff sends a notification to all hotel staff who have at least
@@ -79,10 +109,18 @@ func (s *NotificationService) SendToHotelStaff(hotelID, title, body string, data
 		return
 	}
 
-	s.sendToTokens(tokens, title, body, data)
+	s.enqueue(tokens, title, body, data)
 }
 
-func (s *NotificationService) sendToTokens(tokens []string, title, body string, data map[string]string) {
+func (s *NotificationService) enqueue(tokens []string, title, body string, data map[string]string) {
+	select {
+	case s.jobCh <- notificationJob{tokens: tokens, title: title, body: body, data: data}:
+	default:
+		log.Printf("[FCM] notification queue full, dropping notification: %s", title)
+	}
+}
+
+func (s *NotificationService) doSend(tokens []string, title, body string, data map[string]string) {
 	if len(tokens) == 0 {
 		return
 	}

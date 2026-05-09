@@ -111,7 +111,7 @@ func (s *OrderService) Create(hotelID string, req dto.CreateOrderRequest) (*mode
 
 	// Notify hotel staff about the new order
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"New Room Service Order",
 			fmt.Sprintf("Order from %s — Room %s", req.GuestName, room.RoomNumber),
@@ -125,7 +125,7 @@ func (s *OrderService) Create(hotelID string, req dto.CreateOrderRequest) (*mode
 
 		// Notify the assigned staff member
 		if req.AssignedToID != "" {
-			go s.notificationService.SendToUser(
+			s.notificationService.SendToUser(
 				req.AssignedToID,
 				"Order Assigned to You",
 				fmt.Sprintf("Order for %s — Room %s", req.GuestName, room.RoomNumber),
@@ -200,7 +200,7 @@ func (s *OrderService) UpdateStatus(id, hotelID string, req dto.UpdateOrderStatu
 
 		if newStatus == models.OrderStatusReady {
 			// Notify front desk/admin so they can reassign for delivery
-			go s.notificationService.SendToHotelStaff(
+			s.notificationService.SendToHotelStaff(
 				hotelID, title, body,
 				map[string]string{
 					"type":     "order_ready_for_assignment",
@@ -211,7 +211,7 @@ func (s *OrderService) UpdateStatus(id, hotelID string, req dto.UpdateOrderStatu
 				"orders:assign",
 			)
 		} else {
-			go s.notificationService.SendToHotelStaff(
+			s.notificationService.SendToHotelStaff(
 				hotelID, title, body,
 				map[string]string{
 					"type":     "order_status_update",
@@ -253,7 +253,7 @@ func (s *OrderService) Assign(id, hotelID string, req dto.AssignOrderRequest) (*
 
 	// Notify the assigned staff member
 	if s.notificationService != nil {
-		go s.notificationService.SendToUser(
+		s.notificationService.SendToUser(
 			req.AssignedToID,
 			"Order Assigned to You",
 			fmt.Sprintf("Order for %s — Room %s", order.GuestName, order.Room.RoomNumber),

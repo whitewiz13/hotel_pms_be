@@ -140,7 +140,7 @@ func (s *ReservationService) Create(hotelID string, userID string, req dto.Creat
 
 	// Notify front-desk / reservations staff
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"New Reservation",
 			fmt.Sprintf("%s — Room %s (%s to %s)", req.GuestName, room.RoomNumber, req.CheckInDate, req.CheckOutDate),
@@ -283,7 +283,7 @@ func (s *ReservationService) CheckIn(id, hotelID string, req dto.CheckInRequest)
 
 	// Notify staff about the check-in
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"Guest Checked In",
 			fmt.Sprintf("%s checked into Room %s", reservation.GuestName, reservation.Room.RoomNumber),
@@ -345,7 +345,7 @@ func (s *ReservationService) CheckOut(id, hotelID string) (*models.Reservation, 
 
 	// Notify staff about check-out; housekeeping will need to clean the room
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"Guest Checked Out",
 			fmt.Sprintf("%s checked out of Room %s — room needs cleaning", reservation.GuestName, reservation.Room.RoomNumber),
@@ -397,7 +397,7 @@ func (s *ReservationService) Cancel(id, hotelID string) (*models.Reservation, er
 
 	// Notify staff about cancellation
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"Reservation Cancelled",
 			fmt.Sprintf("%s \u2014 Room %s is now available", reservation.GuestName, reservation.Room.RoomNumber),

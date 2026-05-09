@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/hotelpms/backend/cache"
 	"github.com/hotelpms/backend/config"
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
@@ -19,6 +20,7 @@ type AuthService struct {
 	roleRepo    *repository.RoleRepository
 	planService *PlanService
 	jwtCfg      config.JWTConfig
+	cache       *cache.Cache
 }
 
 type JWTClaims struct {
@@ -34,7 +36,7 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, hotelRepo *repository.HotelRepository, roleRepo *repository.RoleRepository, planService *PlanService, jwtCfg config.JWTConfig) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.RoomRepository, hotelRepo *repository.HotelRepository, roleRepo *repository.RoleRepository, planService *PlanService, jwtCfg config.JWTConfig, cache *cache.Cache) *AuthService {
 	return &AuthService{
 		userRepo:    userRepo,
 		roomRepo:    roomRepo,
@@ -42,6 +44,7 @@ func NewAuthService(userRepo *repository.UserRepository, roomRepo *repository.Ro
 		roleRepo:    roleRepo,
 		planService: planService,
 		jwtCfg:      jwtCfg,
+		cache:       cache,
 	}
 }
 
@@ -101,23 +104,40 @@ func (s *AuthService) GuestLogin(req dto.GuestLoginRequest) (string, *models.Roo
 }
 
 func (s *AuthService) CheckHotelAccess(hotelID string) error {
+	cacheKey := "hotel_access:" + hotelID
+	if cached, ok := s.cache.Get(cacheKey); ok {
+		if cached == nil {
+			return nil
+		}
+		return cached.(error)
+	}
+
 	hotel, err := s.hotelRepo.FindByID(hotelID)
 	if err != nil {
-		return errors.New("hotel not found")
+		accessErr := errors.New("hotel not found")
+		s.cache.Set(cacheKey, accessErr)
+		return accessErr
 	}
 	if !hotel.IsActive {
-		return errors.New("hotel is currently disabled, please contact support")
+		accessErr := errors.New("hotel is currently disabled, please contact support")
+		s.cache.Set(cacheKey, accessErr)
+		return accessErr
 	}
 
 	sub, err := s.planService.GetHotelSubscription(hotelID)
 	if err != nil {
+		// No subscription — allow access
+		s.cache.Set(cacheKey, nil)
 		return nil
 	}
 
 	if sub.Status == models.SubscriptionStatusSuspended || sub.Status == models.SubscriptionStatusCancelled {
-		return errors.New("hotel access is currently suspended, please contact support")
+		accessErr := errors.New("hotel access is currently suspended, please contact support")
+		s.cache.Set(cacheKey, accessErr)
+		return accessErr
 	}
 
+	s.cache.Set(cacheKey, nil)
 	return nil
 }
 

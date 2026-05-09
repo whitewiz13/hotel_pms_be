@@ -177,7 +177,7 @@ func (s *BillService) Generate(hotelID, reservationID string, req dto.GenerateBi
 
 	// Notify front-desk about the generated bill
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"Bill Generated",
 			fmt.Sprintf("Bill for %s — $%.2f (Room %s)", reservation.GuestName, totalAmount, room.RoomNumber),
@@ -243,7 +243,7 @@ func (s *BillService) MarkPaid(id, hotelID string) (*models.Bill, error) {
 
 	// Notify staff that bill is paid — guest can now check out
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"Bill Paid",
 			fmt.Sprintf("%s paid $%.2f — ready for checkout", bill.GuestName, bill.TotalAmount),

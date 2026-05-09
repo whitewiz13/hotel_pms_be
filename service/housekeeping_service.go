@@ -86,7 +86,7 @@ func (s *HousekeepingService) Assign(hotelID, assignedByID string, req dto.Assig
 
 	// Notify the assigned housekeeper
 	if s.notificationService != nil && req.AssignedToID != nil {
-		go s.notificationService.SendToUser(
+		s.notificationService.SendToUser(
 			*req.AssignedToID,
 			"Housekeeping Task Assigned",
 			fmt.Sprintf("Room %s — %s priority", room.RoomNumber, req.Priority),
@@ -174,7 +174,7 @@ func (s *HousekeepingService) Complete(id, hotelID, userID string, req dto.Updat
 
 	// Notify front-desk that room is clean and available
 	if s.notificationService != nil {
-		go s.notificationService.SendToHotelStaff(
+		s.notificationService.SendToHotelStaff(
 			hotelID,
 			"Room Cleaned",
 			fmt.Sprintf("Room %s is now available", task.Room.RoomNumber),

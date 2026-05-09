@@ -2,49 +2,122 @@ package service
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/hotelpms/backend/cache"
 	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/repository"
 )
 
 type AnalyticsService struct {
 	analyticsRepo *repository.AnalyticsRepository
+	cache         *cache.Cache
 }
 
-func NewAnalyticsService(analyticsRepo *repository.AnalyticsRepository) *AnalyticsService {
-	return &AnalyticsService{analyticsRepo: analyticsRepo}
+func NewAnalyticsService(analyticsRepo *repository.AnalyticsRepository, cache *cache.Cache) *AnalyticsService {
+	return &AnalyticsService{analyticsRepo: analyticsRepo, cache: cache}
 }
 
 func (s *AnalyticsService) GetSummary(hotelID string, from, to time.Time) (*dto.AnalyticsSummaryResponse, error) {
-	roomRev, serviceRev, activityRev, err := s.analyticsRepo.GetRevenueSummary(hotelID, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get revenue summary: %w", err)
+	cacheKey := fmt.Sprintf("analytics:%s:%s:%s", hotelID, from.Format("2006-01-02"), to.Format("2006-01-02"))
+	if cached, ok := s.cache.Get(cacheKey); ok {
+		result := cached.(dto.AnalyticsSummaryResponse)
+		return &result, nil
 	}
 
-	total, checkIns, checkOuts, cancelled, err := s.analyticsRepo.CountReservationsByStatus(hotelID, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count reservations: %w", err)
+	var (
+		roomRev, serviceRev, activityRev float64
+		total, checkIns, checkOuts, cancelled int64
+		guests                               int64
+		avgStay                              float64
+		totalRooms                           int64
+		roomsSold                            int64
+		mu                                   sync.Mutex
+		firstErr                             error
+		wg                                   sync.WaitGroup
+	)
+
+	setErr := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		mu.Unlock()
 	}
 
-	guests, err := s.analyticsRepo.CountUniqueGuests(hotelID, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count guests: %w", err)
-	}
+	wg.Add(5)
 
-	avgStay, err := s.analyticsRepo.GetAvgStayLength(hotelID, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get avg stay: %w", err)
-	}
+	go func() {
+		defer wg.Done()
+		r, svc, act, err := s.analyticsRepo.GetRevenueSummary(hotelID, from, to)
+		if err != nil {
+			setErr(fmt.Errorf("failed to get revenue summary: %w", err))
+			return
+		}
+		mu.Lock()
+		roomRev, serviceRev, activityRev = r, svc, act
+		mu.Unlock()
+	}()
 
-	totalRooms, err := s.analyticsRepo.CountTotalActiveRooms(hotelID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count rooms: %w", err)
-	}
+	go func() {
+		defer wg.Done()
+		t, ci, co, ca, err := s.analyticsRepo.CountReservationsByStatus(hotelID, from, to)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count reservations: %w", err))
+			return
+		}
+		mu.Lock()
+		total, checkIns, checkOuts, cancelled = t, ci, co, ca
+		mu.Unlock()
+	}()
 
-	roomsSold, err := s.analyticsRepo.CountRoomsSold(hotelID, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count rooms sold: %w", err)
+	go func() {
+		defer wg.Done()
+		g, err := s.analyticsRepo.CountUniqueGuests(hotelID, from, to)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count guests: %w", err))
+			return
+		}
+		a, err := s.analyticsRepo.GetAvgStayLength(hotelID, from, to)
+		if err != nil {
+			setErr(fmt.Errorf("failed to get avg stay: %w", err))
+			return
+		}
+		mu.Lock()
+		guests = g
+		avgStay = a
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		tr, err := s.analyticsRepo.CountTotalActiveRooms(hotelID)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count rooms: %w", err))
+			return
+		}
+		mu.Lock()
+		totalRooms = tr
+		mu.Unlock()
+	}()
+
+	go func() {
+		defer wg.Done()
+		rs, err := s.analyticsRepo.CountRoomsSold(hotelID, from, to)
+		if err != nil {
+			setErr(fmt.Errorf("failed to count rooms sold: %w", err))
+			return
+		}
+		mu.Lock()
+		roomsSold = rs
+		mu.Unlock()
+	}()
+
+	wg.Wait()
+
+	if firstErr != nil {
+		return nil, firstErr
 	}
 
 	// ADR = room revenue / rooms sold
@@ -73,7 +146,7 @@ func (s *AnalyticsService) GetSummary(hotelID string, from, to time.Time) (*dto.
 		}
 	}
 
-	return &dto.AnalyticsSummaryResponse{
+	result := &dto.AnalyticsSummaryResponse{
 		TotalRevenue:      roomRev + serviceRev + activityRev,
 		RoomRevenue:       roomRev,
 		ServiceRevenue:    serviceRev,
@@ -87,7 +160,10 @@ func (s *AnalyticsService) GetSummary(hotelID string, from, to time.Time) (*dto.
 		RevPAR:            revpar,
 		AvgStayLength:     avgStay,
 		OccupancyRate:     occupancyRate,
-	}, nil
+	}
+
+	s.cache.Set(cacheKey, *result)
+	return result, nil
 }
 
 func (s *AnalyticsService) GetOccupancyTrend(hotelID string, from, to time.Time, period string) ([]dto.OccupancyPoint, error) {
