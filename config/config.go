@@ -49,7 +49,7 @@ type FirebaseConfig struct {
 
 func (d *DatabaseConfig) DSN() string {
 	return fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s search_path=public",
 		d.Host, d.User, d.Password, d.DBName, d.Port, d.SSLMode, d.Timezone,
 	)
 }
