@@ -27,10 +27,12 @@ type Reservation struct {
 	CheckOutDate time.Time         `gorm:"type:date;not null" json:"check_out_date"`
 	Status       ReservationStatus `gorm:"type:varchar(20);not null;default:'reserved'" json:"status"`
 	Notes        string            `gorm:"type:text" json:"notes"`
+	CreatedByID  string            `gorm:"type:uuid;not null" json:"created_by_id"`
 
-	Hotel Hotel `gorm:"foreignKey:HotelID" json:"-"`
-	Room  Room  `gorm:"foreignKey:RoomID" json:"room,omitempty"`
-	Guest Guest `gorm:"foreignKey:GuestID" json:"guest,omitempty"`
+	Hotel     Hotel `gorm:"foreignKey:HotelID" json:"-"`
+	Room      Room  `gorm:"foreignKey:RoomID" json:"room,omitempty"`
+	Guest     Guest `gorm:"foreignKey:GuestID" json:"guest,omitempty"`
+	CreatedBy User  `gorm:"foreignKey:CreatedByID" json:"created_by,omitempty"`
 }
 
 func (Reservation) TableName() string {

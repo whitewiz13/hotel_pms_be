@@ -22,7 +22,7 @@ func (r *ReservationRepository) Create(reservation *models.Reservation) error {
 
 func (r *ReservationRepository) FindByID(id string) (*models.Reservation, error) {
 	var reservation models.Reservation
-	err := r.db.Preload("Room").Preload("Guest").Where("id = ?", id).First(&reservation).Error
+	err := r.db.Preload("Room").Preload("Guest").Preload("CreatedBy").Where("id = ?", id).First(&reservation).Error
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (r *ReservationRepository) FindByID(id string) (*models.Reservation, error)
 
 func (r *ReservationRepository) FindByIDAndHotel(id, hotelID string) (*models.Reservation, error) {
 	var reservation models.Reservation
-	err := r.db.Preload("Room").Preload("Guest").Where("id = ? AND hotel_id = ?", id, hotelID).First(&reservation).Error
+	err := r.db.Preload("Room").Preload("Guest").Preload("CreatedBy").Where("id = ? AND hotel_id = ?", id, hotelID).First(&reservation).Error
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (r *ReservationRepository) FindByHotelID(hotelID string, status, roomID str
 
 	query.Model(&models.Reservation{}).Count(&total)
 
-	err := query.Preload("Room").Preload("Guest").
+	err := query.Preload("Room").Preload("Guest").Preload("CreatedBy").
 		Order("check_in_date DESC").
 		Offset((page - 1) * perPage).
 		Limit(perPage).
@@ -154,7 +154,7 @@ func (r *ReservationRepository) FreeInventory(tx *gorm.DB, reservationID string)
 // FindCheckedInByRoomID returns the active checked-in reservation for a room.
 func (r *ReservationRepository) FindCheckedInByRoomID(roomID, hotelID string) (*models.Reservation, error) {
 	var reservation models.Reservation
-	err := r.db.Preload("Room").Preload("Guest").
+	err := r.db.Preload("Room").Preload("Guest").Preload("CreatedBy").
 		Where("room_id = ? AND hotel_id = ? AND status = ?", roomID, hotelID, models.ReservationStatusCheckedIn).
 		First(&reservation).Error
 	if err != nil {

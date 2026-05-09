@@ -55,7 +55,7 @@ func (s *ReservationService) GetAvailability(hotelID string, query dto.Availabil
 }
 
 // Create creates a new reservation with inventory locking to prevent double booking.
-func (s *ReservationService) Create(hotelID string, req dto.CreateReservationRequest) (*models.Reservation, error) {
+func (s *ReservationService) Create(hotelID string, userID string, req dto.CreateReservationRequest) (*models.Reservation, error) {
 	// Check plan reservation limit
 	if err := s.planService.CheckReservationLimit(hotelID); err != nil {
 		return nil, err
@@ -99,6 +99,7 @@ func (s *ReservationService) Create(hotelID string, req dto.CreateReservationReq
 		CheckOutDate: checkOut,
 		Status:       models.ReservationStatusReserved,
 		Notes:        req.Notes,
+		CreatedByID:  userID,
 	}
 
 	// Use transaction with row-level locking to prevent double booking

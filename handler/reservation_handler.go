@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hotelpms/backend/dto"
+	"github.com/hotelpms/backend/middleware"
 	"github.com/hotelpms/backend/service"
 	"github.com/hotelpms/backend/utils"
 )
@@ -37,6 +38,7 @@ func (h *ReservationHandler) GetAvailability(c *gin.Context) {
 
 func (h *ReservationHandler) Create(c *gin.Context) {
 	hotelID := c.Param("hotel_id")
+	claims := middleware.GetClaims(c)
 
 	var req dto.CreateReservationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -44,7 +46,7 @@ func (h *ReservationHandler) Create(c *gin.Context) {
 		return
 	}
 
-	reservation, err := h.reservationService.Create(hotelID, req)
+	reservation, err := h.reservationService.Create(hotelID, claims.UserID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return

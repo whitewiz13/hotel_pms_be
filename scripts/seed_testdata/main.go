@@ -51,7 +51,7 @@ func main() {
 		// Last hotel (Sunrise Bay) gets extra today check-ins and check-outs
 		if i == len(hotels)-1 {
 			seedReservationsAndRelated(db, hotel.ID.String(), rooms, guests, staff, menuItems, activities)
-			seedTodayCheckIns(db, hotel.ID.String(), rooms[30:50], guests, 20)
+			seedTodayCheckIns(db, hotel.ID.String(), rooms[30:50], guests, staff, 20)
 			seedTodayCheckOuts(db, hotel.ID.String(), rooms[20:30], guests[10:20], staff, menuItems, activities)
 		} else {
 			seedReservationsAndRelated(db, hotel.ID.String(), rooms, guests, staff, menuItems, activities)
@@ -586,6 +586,7 @@ func seedReservationsAndRelated(
 			CheckOutDate: checkOut,
 			Status:       status,
 			Notes:        fmt.Sprintf("Test reservation #%d", i+1),
+			CreatedByID:  staff[0].ID.String(),
 		}
 		if err := db.Create(&res).Error; err != nil {
 			log.Fatalf("reservation: %v", err)
@@ -750,7 +751,7 @@ func seedReservationsAndRelated(
 
 // ─── Today Check-Ins (reserved, checking in today) ─────────────────────────
 
-func seedTodayCheckIns(db *gorm.DB, hotelID string, rooms []models.Room, guests []models.Guest, count int) {
+func seedTodayCheckIns(db *gorm.DB, hotelID string, rooms []models.Room, guests []models.Guest, staff []models.User, count int) {
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 14, 0, 0, 0, now.Location())
 
@@ -769,6 +770,7 @@ func seedTodayCheckIns(db *gorm.DB, hotelID string, rooms []models.Room, guests 
 			CheckOutDate: checkOut,
 			Status:       models.ReservationStatusReserved,
 			Notes:        fmt.Sprintf("Today check-in #%d", i+1),
+			CreatedByID:  staff[0].ID.String(),
 		}
 		if err := db.Create(&res).Error; err != nil {
 			log.Fatalf("today check-in reservation: %v", err)
@@ -816,6 +818,7 @@ func seedTodayCheckOuts(
 			CheckOutDate: today,
 			Status:       models.ReservationStatusCheckedIn,
 			Notes:        fmt.Sprintf("Today check-out #%d", i+1),
+			CreatedByID:  staff[0].ID.String(),
 		}
 		if err := db.Create(&res).Error; err != nil {
 			log.Fatalf("today check-out reservation: %v", err)
