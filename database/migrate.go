@@ -404,6 +404,14 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260509_017_reservation_created_by",
+			Apply: func(db *gorm.DB) error {
+				db.Exec(`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS created_by_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'`)
+				db.Exec(`ALTER TABLE reservations ALTER COLUMN created_by_id DROP DEFAULT`)
+				return nil
+			},
+		},
 	}
 }
 
