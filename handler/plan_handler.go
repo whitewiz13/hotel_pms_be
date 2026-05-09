@@ -25,11 +25,11 @@ func (h *PlanHandler) GetAllPlans(c *gin.Context) {
 	utils.RespondOK(c, plans)
 }
 
-// GetHotelSubscription returns the current subscription for a hotel.
+// GetHotelSubscription returns the current subscription state for a hotel.
 func (h *PlanHandler) GetHotelSubscription(c *gin.Context) {
 	hotelID := c.Param("hotel_id")
 
-	sub, err := h.planService.GetHotelSubscription(hotelID)
+	sub, err := h.planService.GetHotelSubscriptionDetails(hotelID)
 	if err != nil {
 		utils.RespondNotFound(c, err.Error())
 		return
@@ -37,17 +37,17 @@ func (h *PlanHandler) GetHotelSubscription(c *gin.Context) {
 	utils.RespondOK(c, sub)
 }
 
-// ChangeHotelPlan updates the plan for a hotel (super_admin only).
+// ChangeHotelPlan updates the subscription state for a hotel (super_admin only).
 func (h *PlanHandler) ChangeHotelPlan(c *gin.Context) {
 	hotelID := c.Param("hotel_id")
 
-	var req dto.ChangePlanRequest
+	var req dto.UpdateHotelSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return
 	}
 
-	sub, err := h.planService.ChangeHotelPlan(hotelID, req.PlanID)
+	sub, err := h.planService.UpdateHotelSubscription(hotelID, req)
 	if err != nil {
 		utils.RespondBadRequest(c, err.Error())
 		return

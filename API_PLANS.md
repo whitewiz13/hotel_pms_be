@@ -142,12 +142,30 @@ Authorization: Bearer <token>
       "feature_guest_uploads": true
     },
     "status": "active",
+    "assigned_at": "2026-04-30T10:00:00Z",
+    "renewed_at": "2026-05-30T10:00:00Z",
+    "access_until": "2026-05-30T23:59:59Z",
     "expires_at": null,
+    "suspended_at": null,
+    "suspension_reason": null,
+    "days_left": 12,
+    "is_overdue": false,
+    "overdue_days": 0,
+    "hotel_is_active": true,
+    "can_access": true,
     "created_at": "2026-04-30T10:00:00Z",
     "updated_at": "2026-04-30T10:00:00Z"
   }
 }
 ```
+
+**Field notes:**
+
+- `access_until` is the manual billing reminder date used for days-left and overdue calculations.
+- `expires_at` is still returned as a compatibility alias for older frontend code; new frontend work should use `access_until`.
+- `hotel_is_active` is the hard access switch.
+- `status` is the billing state: `active`, `past_due`, `suspended`, `cancelled`.
+- `can_access` becomes `false` when the hotel is disabled or the subscription is suspended/cancelled.
 
 ---
 
@@ -196,7 +214,7 @@ Authorization: Bearer <token>
 
 ---
 
-### Change Hotel Plan (Super Admin Only)
+### Update Hotel Subscription (Super Admin Only)
 
 ```
 PUT /api/hotels/:hotel_id/subscription
@@ -207,7 +225,57 @@ Content-Type: application/json
 **Request:**
 ```json
 {
-  "plan_id": "pro"
+	"plan_id": "pro",
+	"status": "active",
+	"renewed_at": "2026-05-01T09:00:00Z",
+	"access_until": "2026-06-01T23:59:59Z",
+	"hotel_is_active": true
+}
+```
+
+**Allowed request fields:**
+
+- `plan_id` optional when you are only changing billing/access state
+- `status` optional, one of `active`, `past_due`, `suspended`, `cancelled`
+- `assigned_at` optional RFC3339 timestamp
+- `renewed_at` optional RFC3339 timestamp
+- `access_until` optional RFC3339 timestamp
+- `suspended_at` optional RFC3339 timestamp
+- `suspension_reason` optional string
+- `hotel_is_active` optional boolean
+
+**Common manual actions:**
+
+Suspend hotel for non-payment:
+
+```json
+{
+  "status": "suspended",
+  "suspended_at": "2026-06-02T10:00:00Z",
+  "suspension_reason": "Payment overdue",
+  "hotel_is_active": false
+}
+```
+
+Mark overdue but keep hotel working:
+
+```json
+{
+  "status": "past_due",
+  "access_until": "2026-06-01T23:59:59Z",
+  "hotel_is_active": true
+}
+```
+
+Renew and reactivate:
+
+```json
+{
+  "status": "active",
+  "renewed_at": "2026-06-05T09:00:00Z",
+  "access_until": "2026-07-05T23:59:59Z",
+  "suspension_reason": "",
+  "hotel_is_active": true
 }
 ```
 
@@ -221,12 +289,28 @@ Content-Type: application/json
     "plan_id": "pro",
     "plan": { ... },
     "status": "active",
-    "expires_at": null,
+    "assigned_at": "2026-04-30T10:00:00Z",
+    "renewed_at": "2026-05-01T09:00:00Z",
+    "access_until": "2026-06-01T23:59:59Z",
+    "expires_at": "2026-06-01T23:59:59Z",
+    "suspended_at": null,
+    "suspension_reason": null,
+    "days_left": 31,
+    "is_overdue": false,
+    "overdue_days": 0,
+    "hotel_is_active": true,
+    "can_access": true,
     "created_at": "2026-04-30T10:00:00Z",
     "updated_at": "2026-04-30T12:00:00Z"
   }
 }
 ```
+
+## Access Enforcement
+
+- Disabling `hotel_is_active` blocks new logins and authenticated API access immediately.
+- `status = suspended` or `status = cancelled` also blocks authenticated API access immediately.
+- `status = past_due` does not block access by itself; it is a reminder state until you manually suspend or disable the hotel.
 
 ---
 

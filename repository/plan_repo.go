@@ -45,9 +45,13 @@ func (r *PlanRepository) UpdateSubscription(sub *models.Subscription) error {
 	return r.db.Model(&models.Subscription{}).
 		Where("id = ?", sub.ID).
 		Updates(map[string]interface{}{
-			"plan_id":    sub.PlanID,
-			"status":     sub.Status,
-			"expires_at": sub.ExpiresAt,
+			"plan_id":           sub.PlanID,
+			"status":            sub.Status,
+			"assigned_at":       sub.AssignedAt,
+			"renewed_at":        sub.RenewedAt,
+			"expires_at":        sub.ExpiresAt,
+			"suspended_at":      sub.SuspendedAt,
+			"suspension_reason": sub.SuspensionReason,
 		}).Error
 }
 

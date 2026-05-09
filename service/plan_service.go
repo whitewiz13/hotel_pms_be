@@ -3,17 +3,23 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
+	"github.com/hotelpms/backend/dto"
 	"github.com/hotelpms/backend/models"
 	"github.com/hotelpms/backend/repository"
+	"gorm.io/gorm"
 )
 
 type PlanService struct {
+	db       *gorm.DB
 	planRepo *repository.PlanRepository
+	hotelRepo *repository.HotelRepository
 }
 
-func NewPlanService(planRepo *repository.PlanRepository) *PlanService {
-	return &PlanService{planRepo: planRepo}
+func NewPlanService(db *gorm.DB, planRepo *repository.PlanRepository, hotelRepo *repository.HotelRepository) *PlanService {
+	return &PlanService{db: db, planRepo: planRepo, hotelRepo: hotelRepo}
 }
 
 func (s *PlanService) GetAllPlans() ([]models.Plan, error) {
@@ -28,6 +34,20 @@ func (s *PlanService) GetHotelSubscription(hotelID string) (*models.Subscription
 	return sub, nil
 }
 
+func (s *PlanService) GetHotelSubscriptionDetails(hotelID string) (*dto.SubscriptionResponse, error) {
+	hotel, err := s.hotelRepo.FindByID(hotelID)
+	if err != nil {
+		return nil, errors.New("hotel not found")
+	}
+
+	sub, err := s.planRepo.FindSubscriptionByHotelID(hotelID)
+	if err != nil {
+		return nil, errors.New("subscription not found")
+	}
+
+	return s.buildSubscriptionResponse(sub, hotel), nil
+}
+
 func (s *PlanService) GetHotelPlan(hotelID string) (*models.Plan, error) {
 	sub, err := s.planRepo.FindSubscriptionByHotelID(hotelID)
 	if err != nil {
@@ -38,33 +58,158 @@ func (s *PlanService) GetHotelPlan(hotelID string) (*models.Plan, error) {
 }
 
 func (s *PlanService) ChangeHotelPlan(hotelID, planID string) (*models.Subscription, error) {
-	// Validate plan exists
-	_, err := s.planRepo.FindByID(planID)
+	status := models.SubscriptionStatusActive
+	_, err := s.UpdateHotelSubscription(hotelID, dto.UpdateHotelSubscriptionRequest{
+		PlanID: &planID,
+		Status: &status,
+	})
 	if err != nil {
-		return nil, errors.New("invalid plan")
+		return nil, err
 	}
 
-	sub, err := s.planRepo.FindSubscriptionByHotelID(hotelID)
-	if err != nil {
-		// Create new subscription
-		sub = &models.Subscription{
-			HotelID: hotelID,
-			PlanID:  planID,
-			Status:  models.SubscriptionStatusActive,
-		}
-		if err := s.planRepo.CreateSubscription(sub); err != nil {
-			return nil, errors.New("failed to create subscription")
-		}
-	} else {
-		sub.PlanID = planID
-		sub.Status = models.SubscriptionStatusActive
-		if err := s.planRepo.UpdateSubscription(sub); err != nil {
-			return nil, errors.New("failed to update subscription")
-		}
-	}
-
-	// Re-fetch with preloaded plan
 	return s.planRepo.FindSubscriptionByHotelID(hotelID)
+}
+
+func (s *PlanService) UpdateHotelSubscription(hotelID string, req dto.UpdateHotelSubscriptionRequest) (*dto.SubscriptionResponse, error) {
+	if !req.HasChanges() {
+		return nil, errors.New("at least one subscription field must be provided")
+	}
+
+	hotel, err := s.hotelRepo.FindByID(hotelID)
+	if err != nil {
+		return nil, errors.New("hotel not found")
+	}
+
+	var response *dto.SubscriptionResponse
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		planRepo := repository.NewPlanRepository(tx)
+		hotelRepo := repository.NewHotelRepository(tx)
+
+		sub, err := planRepo.FindSubscriptionByHotelID(hotelID)
+		isNew := false
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("failed to load subscription")
+			}
+			isNew = true
+			sub = &models.Subscription{
+				HotelID: hotelID,
+				Status:  models.SubscriptionStatusActive,
+			}
+		}
+
+		if isNew && req.PlanID == nil {
+			return errors.New("plan_id is required when creating a subscription")
+		}
+
+		if sub.AssignedAt == nil && !sub.CreatedAt.IsZero() {
+			assignedAt := sub.CreatedAt.UTC()
+			sub.AssignedAt = &assignedAt
+		}
+
+		planChanged := false
+		if req.PlanID != nil {
+			planID := strings.TrimSpace(*req.PlanID)
+			if planID == "" {
+				return errors.New("plan_id cannot be empty")
+			}
+			if _, err := planRepo.FindByID(planID); err != nil {
+				return errors.New("invalid plan")
+			}
+			planChanged = sub.PlanID != planID
+			sub.PlanID = planID
+		}
+
+		if sub.PlanID == "" {
+			return errors.New("plan_id is required")
+		}
+
+		if req.AssignedAt != nil {
+			sub.AssignedAt = req.AssignedAt
+		} else if isNew || planChanged {
+			now := time.Now().UTC()
+			sub.AssignedAt = &now
+		}
+
+		if req.Status != nil {
+			status := strings.TrimSpace(*req.Status)
+			if status == "" {
+				return errors.New("status cannot be empty")
+			}
+			sub.Status = status
+		} else if sub.Status == "" {
+			sub.Status = models.SubscriptionStatusActive
+		}
+
+		if req.RenewedAt != nil {
+			sub.RenewedAt = req.RenewedAt
+		}
+		if req.AccessUntil != nil {
+			sub.ExpiresAt = req.AccessUntil
+			if req.RenewedAt == nil && sub.Status == models.SubscriptionStatusActive {
+				renewedAt := time.Now().UTC()
+				sub.RenewedAt = &renewedAt
+			}
+		}
+		if req.SuspensionReason != nil {
+			reason := strings.TrimSpace(*req.SuspensionReason)
+			if reason == "" {
+				sub.SuspensionReason = nil
+			} else {
+				sub.SuspensionReason = &reason
+			}
+		}
+		if req.SuspendedAt != nil {
+			sub.SuspendedAt = req.SuspendedAt
+		}
+
+		if req.Status != nil {
+			switch sub.Status {
+			case models.SubscriptionStatusSuspended:
+				if req.SuspendedAt == nil {
+					now := time.Now().UTC()
+					sub.SuspendedAt = &now
+				}
+			case models.SubscriptionStatusActive, models.SubscriptionStatusPastDue:
+				if req.SuspendedAt == nil {
+					sub.SuspendedAt = nil
+				}
+				if req.SuspensionReason == nil {
+					sub.SuspensionReason = nil
+				}
+			}
+		}
+
+		if isNew {
+			if err := planRepo.CreateSubscription(sub); err != nil {
+				return errors.New("failed to create subscription")
+			}
+		} else {
+			if err := planRepo.UpdateSubscription(sub); err != nil {
+				return errors.New("failed to update subscription")
+			}
+		}
+
+		if req.HotelIsActive != nil {
+			hotel.IsActive = *req.HotelIsActive
+			if err := hotelRepo.Update(hotel); err != nil {
+				return errors.New("failed to update hotel access")
+			}
+		}
+
+		sub, err = planRepo.FindSubscriptionByHotelID(hotelID)
+		if err != nil {
+			return errors.New("failed to load updated subscription")
+		}
+
+		response = s.buildSubscriptionResponse(sub, hotel)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // --- Limit checking helpers ---
@@ -194,4 +339,47 @@ func (s *PlanService) GetUsage(hotelID string) (*PlanUsage, error) {
 			StorageMB:         sub.Plan.MaxStorageMB,
 		},
 	}, nil
+}
+
+func (s *PlanService) buildSubscriptionResponse(sub *models.Subscription, hotel *models.Hotel) *dto.SubscriptionResponse {
+	daysLeft, isOverdue, overdueDays := calculateAccessTiming(sub.ExpiresAt)
+	canAccess := hotel.IsActive && sub.Status != models.SubscriptionStatusSuspended && sub.Status != models.SubscriptionStatusCancelled
+
+	return &dto.SubscriptionResponse{
+		ID:               sub.ID.String(),
+		CreatedAt:        sub.CreatedAt,
+		UpdatedAt:        sub.UpdatedAt,
+		HotelID:          sub.HotelID,
+		PlanID:           sub.PlanID,
+		Plan:             sub.Plan,
+		Status:           sub.Status,
+		AssignedAt:       sub.AssignedAt,
+		RenewedAt:        sub.RenewedAt,
+		AccessUntil:      sub.ExpiresAt,
+		ExpiresAt:        sub.ExpiresAt,
+		SuspendedAt:      sub.SuspendedAt,
+		SuspensionReason: sub.SuspensionReason,
+		DaysLeft:         daysLeft,
+		IsOverdue:        isOverdue,
+		OverdueDays:      overdueDays,
+		HotelIsActive:    hotel.IsActive,
+		CanAccess:        canAccess,
+	}
+}
+
+func calculateAccessTiming(accessUntil *time.Time) (*int, bool, int) {
+	if accessUntil == nil {
+		return nil, false, 0
+	}
+
+	today := time.Now().UTC()
+	todayDate := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
+	accessDate := time.Date(accessUntil.UTC().Year(), accessUntil.UTC().Month(), accessUntil.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	diffDays := int(accessDate.Sub(todayDate).Hours() / 24)
+	if diffDays >= 0 {
+		return &diffDays, false, 0
+	}
+
+	zero := 0
+	return &zero, true, -diffDays
 }

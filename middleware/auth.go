@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hotelpms/backend/models"
 	"github.com/hotelpms/backend/service"
 	"github.com/hotelpms/backend/utils"
 )
@@ -33,6 +34,14 @@ func AuthMiddleware(authService *service.AuthService) gin.HandlerFunc {
 			utils.RespondUnauthorized(c, "invalid or expired token")
 			c.Abort()
 			return
+		}
+
+		if claims.Role != models.RoleSuperAdmin && claims.HotelID != "" {
+			if err := authService.CheckHotelAccess(claims.HotelID); err != nil {
+				utils.RespondForbidden(c, err.Error())
+				c.Abort()
+				return
+			}
 		}
 
 		c.Set(ContextKeyClaims, claims)

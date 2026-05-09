@@ -61,12 +61,8 @@ func (s *AuthService) Login(req dto.LoginRequest) (string, *models.User, error) 
 
 	// Block login if hotel is disabled (skip for super_admin — no hotel)
 	if user.HotelID != nil && user.Role != models.RoleSuperAdmin {
-		hotel, err := s.hotelRepo.FindByID(*user.HotelID)
-		if err != nil {
-			return "", nil, errors.New("hotel not found")
-		}
-		if !hotel.IsActive {
-			return "", nil, errors.New("hotel is currently disabled, please contact support")
+		if err := s.CheckHotelAccess(*user.HotelID); err != nil {
+			return "", nil, err
 		}
 	}
 
@@ -79,13 +75,8 @@ func (s *AuthService) Login(req dto.LoginRequest) (string, *models.User, error) 
 }
 
 func (s *AuthService) GuestLogin(req dto.GuestLoginRequest) (string, *models.Room, error) {
-	// Block guest login if hotel is disabled
-	hotel, err := s.hotelRepo.FindByID(req.HotelID)
-	if err != nil {
-		return "", nil, errors.New("hotel not found")
-	}
-	if !hotel.IsActive {
-		return "", nil, errors.New("hotel is currently disabled, please contact support")
+	if err := s.CheckHotelAccess(req.HotelID); err != nil {
+		return "", nil, err
 	}
 
 	room, err := s.roomRepo.FindByRoomNumberAndHotel(req.RoomNumber, req.HotelID)
@@ -107,6 +98,27 @@ func (s *AuthService) GuestLogin(req dto.GuestLoginRequest) (string, *models.Roo
 	}
 
 	return token, room, nil
+}
+
+func (s *AuthService) CheckHotelAccess(hotelID string) error {
+	hotel, err := s.hotelRepo.FindByID(hotelID)
+	if err != nil {
+		return errors.New("hotel not found")
+	}
+	if !hotel.IsActive {
+		return errors.New("hotel is currently disabled, please contact support")
+	}
+
+	sub, err := s.planService.GetHotelSubscription(hotelID)
+	if err != nil {
+		return nil
+	}
+
+	if sub.Status == models.SubscriptionStatusSuspended || sub.Status == models.SubscriptionStatusCancelled {
+		return errors.New("hotel access is currently suspended, please contact support")
+	}
+
+	return nil
 }
 
 func (s *AuthService) CreateStaff(hotelID string, req dto.CreateStaffRequest) (*models.User, error) {

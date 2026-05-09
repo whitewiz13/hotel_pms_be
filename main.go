@@ -68,7 +68,7 @@ func main() {
 	notificationService := service.NewNotificationService(cfg.Firebase.CredentialsFile, cfg.Firebase.CredentialsJSON, fcmTokenRepo)
 
 	// Initialize services
-	planService := service.NewPlanService(planRepo)
+	planService := service.NewPlanService(db, planRepo, hotelRepo)
 	roleService := service.NewRoleService(roleRepo, permissionRepo)
 	authService := service.NewAuthService(userRepo, roomRepo, hotelRepo, roleRepo, planService, cfg.JWT)
 	hotelService := service.NewHotelService(db, hotelRepo, userRepo, roleRepo, permissionRepo, planRepo)

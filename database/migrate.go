@@ -382,6 +382,19 @@ func migrations() []migration {
 				return nil
 			},
 		},
+		{
+			Version: "20260430_015_subscription_billing_fields",
+			Apply: func(db *gorm.DB) error {
+				if err := db.AutoMigrate(&models.Subscription{}); err != nil {
+					return err
+				}
+
+				db.Exec(`UPDATE subscriptions SET assigned_at = COALESCE(assigned_at, created_at) WHERE assigned_at IS NULL`)
+				db.Exec(`UPDATE subscriptions SET renewed_at = COALESCE(renewed_at, updated_at, created_at) WHERE renewed_at IS NULL`)
+
+				return nil
+			},
+		},
 	}
 }
 
